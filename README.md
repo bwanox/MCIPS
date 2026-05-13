@@ -40,7 +40,7 @@ remain supported and are normalized internally before processing.
 3. Backend validates the normalized envelope with discriminated Zod schemas by `eventType`.
 4. `privacySanitizer` performs event-type-specific sanitization and derives safe features.
 5. Structured dataset events are scored locally with `datasetScoring.service.ts`.
-6. Natural language events are sanitized and then sent to `POST {AI_SERVICE_URL}/inference/analyze`.
+6. Natural language events are sanitized and then sent to the AI inference route. The backend accepts `AI_SERVICE_URL` as either the AI root URL or the `/api/v1` base and resolves the final inference path automatically.
 7. If AI times out or fails, backend generates a fallback `suspicious / MEDIUM` result.
 8. `alertEngine` converts the result into a standardized alert contract used across all event families.
 9. Backend stores sanitized `Alert` and `EventLog` records in MongoDB or in-memory repositories.
@@ -77,6 +77,7 @@ Backend environment variables:
 
 - `PORT`
 - `CLIENT_URL`
+- `CLIENT_URLS`
 - `AI_SERVICE_URL`
 - `JWT_SECRET`
 - `JWT_EXPIRES_IN`
@@ -91,6 +92,7 @@ Notes:
 - If `USE_IN_MEMORY_DB=true`, the backend skips Mongo entirely.
 - If Mongo connection fails, the app falls back to in-memory repositories automatically.
 - Event ingestion is public for demo/testing; alerts, stats, and simulation routes require a bearer token.
+- In development, the backend accepts configured origins from `CLIENT_URLS` and also allows common private-network dev origins such as `localhost`, `127.0.0.1`, `172.16.x.x-172.31.x.x`, `192.168.x.x`, and `10.x.x.x`.
 
 ## Frontend Setup
 
@@ -108,7 +110,12 @@ Frontend environment variables:
 
 The backend expects the Python service at `AI_SERVICE_URL` to expose:
 
-- `POST /inference/analyze`
+- `POST /api/v1/inference/analyze`
+
+`AI_SERVICE_URL` can be configured as either:
+
+- `http://127.0.0.1:8000`
+- `http://127.0.0.1:8000/api/v1`
 
 Expected request body:
 
@@ -234,6 +241,7 @@ curl http://localhost:4000/api/stats/summary \
 2. Start the backend in memory mode.
 3. Start the frontend.
 4. Log in with `ADMIN_EMAIL` and the password matching `ADMIN_PASSWORD_HASH`.
+For the default local setup in this repo, that is `admin@mcips.local` / `admin123` unless you override the env values.
 5. Use `Run Once` in the simulator or submit a manual event.
 6. Watch the live feed, family/type charts, stats cards, filters, and recent alerts update without page refresh.
 
