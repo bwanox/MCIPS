@@ -32,6 +32,8 @@ export const ChartsPanel = ({
   const labelData = summary
     ? Object.entries(summary.labelDistribution).map(([name, value]) => ({ name, value }))
     : [];
+  const familyData = summary?.datasetFamilyDistribution ?? [];
+  const eventTypeData = summary?.eventTypeDistribution ?? [];
 
   return (
     <section className="chart-grid">
@@ -48,6 +50,18 @@ export const ChartsPanel = ({
         </ResponsiveContainer>
       </article>
       <article className="panel chart-panel">
+        <h2>Dataset Families</h2>
+        <ResponsiveContainer width="100%" height={250}>
+          <BarChart data={familyData}>
+            <CartesianGrid stroke="#17304a" vertical={false} />
+            <XAxis dataKey="family" stroke="#9ab6d3" />
+            <YAxis stroke="#9ab6d3" />
+            <Tooltip />
+            <Bar dataKey="count" fill="#10b981" radius={[8, 8, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </article>
+      <article className="panel chart-panel">
         <h2>Label Distribution</h2>
         <ResponsiveContainer width="100%" height={250}>
           <PieChart>
@@ -58,6 +72,18 @@ export const ChartsPanel = ({
             </Pie>
             <Tooltip />
           </PieChart>
+        </ResponsiveContainer>
+      </article>
+      <article className="panel chart-panel">
+        <h2>Event Types</h2>
+        <ResponsiveContainer width="100%" height={250}>
+          <BarChart data={eventTypeData}>
+            <CartesianGrid stroke="#17304a" vertical={false} />
+            <XAxis dataKey="eventType" stroke="#9ab6d3" />
+            <YAxis stroke="#9ab6d3" />
+            <Tooltip />
+            <Bar dataKey="count" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+          </BarChart>
         </ResponsiveContainer>
       </article>
       <article className="panel chart-panel chart-wide">

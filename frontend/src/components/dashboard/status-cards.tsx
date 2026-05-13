@@ -6,8 +6,8 @@ export const StatusCards = ({ summary }: { summary: StatsSummary | null }) => {
   const cards = [
     { label: "Total Alerts", value: summary?.totalAlerts ?? 0 },
     { label: "High Risk", value: summary?.highRiskAlerts ?? 0 },
-    { label: "Phishing", value: summary?.phishingCount ?? 0 },
-    { label: "Suspicious Login", value: summary?.suspiciousLoginCount ?? 0 }
+    { label: "Medium Risk", value: summary?.mediumRiskAlerts ?? 0 },
+    { label: "Low Risk", value: summary?.lowRiskAlerts ?? 0 }
   ];
 
   return (

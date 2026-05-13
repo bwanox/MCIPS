@@ -14,6 +14,7 @@ export const RecentAlertsTable = ({ alerts }: { alerts: Alert[] }) => (
           <tr>
             <th>Time</th>
             <th>Type</th>
+            <th>Family</th>
             <th>Label</th>
             <th>Severity</th>
             <th>Preview</th>
@@ -25,6 +26,7 @@ export const RecentAlertsTable = ({ alerts }: { alerts: Alert[] }) => (
             <tr key={alert.id}>
               <td>{new Date(alert.timestamp).toLocaleString()}</td>
               <td>{alert.eventType}</td>
+              <td>{alert.datasetFamily}</td>
               <td>{alert.label}</td>
               <td>{alert.severity}</td>
               <td>{alert.sanitizedPreview}</td>

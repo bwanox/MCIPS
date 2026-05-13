@@ -18,8 +18,10 @@ import { eventsService, type EventSubmission } from "../../services/events-servi
 import { simulationService } from "../../services/simulation-service";
 import { statsService } from "../../services/stats-service";
 import type { Alert } from "../../types/alert";
+import type { DatasetFamily, RiskLevel, ThreatLabel } from "../../types/alert";
 import type { SimulationStatus } from "../../types/simulation";
 import type { StatsSummary, TimelinePoint } from "../../types/stats";
+import type { CyberEventType, EventSource } from "../../types/event";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -29,6 +31,19 @@ export default function DashboardPage() {
   const [timeline, setTimeline] = useState<TimelinePoint[]>([]);
   const [simulationStatus, setSimulationStatus] = useState<SimulationStatus | null>(null);
   const [systemStatus, setSystemStatus] = useState<string>("Initializing");
+  const [filters, setFilters] = useState<{
+    risk: RiskLevel | "ALL";
+    label: ThreatLabel | "ALL";
+    datasetFamily: DatasetFamily | "ALL";
+    eventType: CyberEventType | "ALL";
+    source: EventSource | "ALL";
+  }>({
+    risk: "ALL",
+    label: "ALL",
+    datasetFamily: "ALL",
+    eventType: "ALL",
+    source: "ALL"
+  });
 
   const refreshTimeline = useCallback(() => {
     void statsService.timeline("today").then((points) => {
@@ -90,6 +105,26 @@ export default function DashboardPage() {
     refreshTimeline();
   };
 
+  const filteredAlerts = alerts.filter((alert) => {
+    if (filters.risk !== "ALL" && alert.risk !== filters.risk) {
+      return false;
+    }
+    if (filters.label !== "ALL" && alert.label !== filters.label) {
+      return false;
+    }
+    if (filters.datasetFamily !== "ALL" && alert.datasetFamily !== filters.datasetFamily) {
+      return false;
+    }
+    if (filters.eventType !== "ALL" && alert.eventType !== filters.eventType) {
+      return false;
+    }
+    if (filters.source !== "ALL" && alert.source !== filters.source) {
+      return false;
+    }
+
+    return true;
+  });
+
   return (
     <main className="dashboard-shell">
       <header className="dashboard-header">
@@ -112,10 +147,57 @@ export default function DashboardPage() {
         </div>
       </header>
       <StatusCards summary={summary} />
+      <section className="panel">
+        <div className="panel-header">
+          <h2>Filters</h2>
+          <span className="badge">Live dashboard</span>
+        </div>
+        <form className="manual-form">
+          <label>
+            Risk
+            <select value={filters.risk} onChange={(event) => setFilters((current) => ({ ...current, risk: event.target.value as typeof filters.risk }))}>
+              <option value="ALL">All</option>
+              <option value="HIGH">HIGH</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="LOW">LOW</option>
+            </select>
+          </label>
+          <label>
+            Label
+            <input value={filters.label} onChange={(event) => setFilters((current) => ({ ...current, label: event.target.value as typeof filters.label }))} placeholder="ALL or label" />
+          </label>
+          <label>
+            Dataset Family
+            <input
+              value={filters.datasetFamily}
+              onChange={(event) => setFilters((current) => ({ ...current, datasetFamily: event.target.value as typeof filters.datasetFamily }))}
+              placeholder="ALL or family"
+            />
+          </label>
+          <label>
+            Event Type
+            <input
+              value={filters.eventType}
+              onChange={(event) => setFilters((current) => ({ ...current, eventType: event.target.value as typeof filters.eventType }))}
+              placeholder="ALL or event type"
+            />
+          </label>
+          <label>
+            Source
+            <select value={filters.source} onChange={(event) => setFilters((current) => ({ ...current, source: event.target.value as typeof filters.source }))}>
+              <option value="ALL">All</option>
+              <option value="manual">manual</option>
+              <option value="simulation">simulation</option>
+              <option value="dataset">dataset</option>
+              <option value="external">external</option>
+            </select>
+          </label>
+        </form>
+      </section>
       <div className="dashboard-main">
         <div className="dashboard-column">
-          <LiveFeed alerts={alerts} />
-          <RecentAlertsTable alerts={alerts} />
+          <LiveFeed alerts={filteredAlerts} />
+          <RecentAlertsTable alerts={filteredAlerts} />
         </div>
         <div className="dashboard-column">
           <SimulationControls
