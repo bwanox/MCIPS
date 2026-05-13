@@ -15,16 +15,28 @@ export const SimulationControls = ({
 }) => (
   <section className="panel">
     <div className="panel-header">
-      <h2>Simulator</h2>
+      <div>
+        <h2>Simulator</h2>
+        <p className="panel-subtext">Drive synthetic traffic through the exact same realtime pipeline.</p>
+      </div>
       <span className={`badge ${status?.running ? "badge-live" : ""}`}>
         {status?.running ? "Running" : "Stopped"}
       </span>
     </div>
-    <p>Last alert: {status?.lastAlertAt ? new Date(status.lastAlertAt).toLocaleString() : "none"}</p>
+    <div className="status-stack">
+      <div className="status-pill">
+        <span className="eyebrow">Last Alert</span>
+        <strong>{status?.lastAlertAt ? new Date(status.lastAlertAt).toLocaleString() : "No activity yet"}</strong>
+      </div>
+      <div className="status-pill">
+        <span className="eyebrow">Interval</span>
+        <strong>{status?.intervalMs ? `${Math.round(status.intervalMs / 1000)}s cadence` : "Idle"}</strong>
+      </div>
+    </div>
     <div className="button-row">
-      <button onClick={onStart}>Start</button>
-      <button onClick={onStop}>Stop</button>
-      <button onClick={onOnce}>Run Once</button>
+      <button onClick={onStart}>Start Stream</button>
+      <button className="secondary-button" onClick={onStop}>Stop Stream</button>
+      <button className="ghost-button" onClick={onOnce}>Inject Single Event</button>
     </div>
   </section>
 );

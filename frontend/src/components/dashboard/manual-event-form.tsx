@@ -102,11 +102,14 @@ export const ManualEventForm = ({ onSubmit }: { onSubmit: (payload: EventSubmiss
   return (
     <section className="panel">
       <div className="panel-header">
-        <h2>Manual Submission</h2>
+        <div>
+          <h2>Manual Submission</h2>
+          <p className="panel-subtext">Craft analyst-driven test events without exposing unsanitized content in the UI.</p>
+        </div>
         <span className="badge">Open ingest API</span>
       </div>
       <form
-        className="manual-form"
+        className="manual-form form-grid"
         onSubmit={async (event) => {
           event.preventDefault();
           setSubmitting(true);
@@ -117,8 +120,8 @@ export const ManualEventForm = ({ onSubmit }: { onSubmit: (payload: EventSubmiss
             setSubmitting(false);
           }
         }}
-      >
-        <label>
+        >
+        <label className="full-span">
           Event Type
           <select
             value={payload.eventType}
@@ -131,8 +134,11 @@ export const ManualEventForm = ({ onSubmit }: { onSubmit: (payload: EventSubmiss
             ))}
           </select>
         </label>
+        <p className="form-note full-span">
+          The backend will normalize the envelope, sanitize sensitive fields, and route dataset events through local scoring or AI as needed.
+        </p>
         {payload.eventType === "sms.message.received" ? (
-          <label>
+          <label className="full-span">
             Content
             <textarea
               value={String(payload.payload.content ?? "")}
@@ -391,9 +397,18 @@ export const ManualEventForm = ({ onSubmit }: { onSubmit: (payload: EventSubmiss
             </label>
           </>
         ) : null}
-        <button type="submit" disabled={submitting}>
-          {submitting ? "Submitting..." : "Analyze Event"}
-        </button>
+        <div className="form-toolbar full-span">
+          <button type="submit" disabled={submitting}>
+            {submitting ? "Submitting..." : "Analyze Event"}
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => setPayload(createDefaultPayload(payload.eventType))}
+          >
+            Reset Form
+          </button>
+        </div>
       </form>
     </section>
   );

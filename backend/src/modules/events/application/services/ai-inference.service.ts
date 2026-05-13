@@ -13,6 +13,15 @@ type AiRequestPayload = {
   user_agent?: string;
 };
 
+const resolveAiAnalyzeUrl = (baseUrl: string): string => {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
+  if (normalizedBaseUrl.endsWith("/api/v1")) {
+    return `${normalizedBaseUrl}/inference/analyze`;
+  }
+
+  return `${normalizedBaseUrl}/api/v1/inference/analyze`;
+};
+
 const compactObject = (value: Record<string, unknown>): string =>
   Object.entries(value)
     .filter(([, entry]) => entry !== undefined && entry !== "")
@@ -84,7 +93,7 @@ export class AiInferenceService {
 
     try {
       const response = await axios.post(
-        `${env.aiServiceUrl}/inference/analyze`,
+        resolveAiAnalyzeUrl(env.aiServiceUrl),
         {
           type: payload.type,
           content: payload.content,

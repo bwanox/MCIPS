@@ -5,7 +5,10 @@ import type { Alert } from "../../types/alert";
 export const RecentAlertsTable = ({ alerts }: { alerts: Alert[] }) => (
   <section className="panel">
     <div className="panel-header">
-      <h2>Recent Alerts</h2>
+      <div>
+        <h2>Recent Alerts</h2>
+        <p className="panel-subtext">Fast scan table for the most recent incidents in the SOC queue.</p>
+      </div>
       <span className="badge">Sanitized only</span>
     </div>
     <div className="table-wrap">
@@ -25,12 +28,21 @@ export const RecentAlertsTable = ({ alerts }: { alerts: Alert[] }) => (
           {alerts.slice(0, 10).map((alert) => (
             <tr key={alert.id}>
               <td>{new Date(alert.timestamp).toLocaleString()}</td>
-              <td>{alert.eventType}</td>
+              <td>
+                <span className="table-title">{alert.eventType}</span>
+                <span className="table-subtext">{alert.source}</span>
+              </td>
               <td>{alert.datasetFamily}</td>
-              <td>{alert.label}</td>
+              <td>
+                <span className="table-title">{alert.label}</span>
+                <span className="table-subtext">{alert.risk}</span>
+              </td>
               <td>{alert.severity}</td>
               <td>{alert.sanitizedPreview}</td>
-              <td>{alert.modelUsed}</td>
+              <td>
+                <span className="table-title">{alert.modelUsed}</span>
+                <span className="table-subtext">{Math.round(alert.confidence * 100)}% confidence</span>
+              </td>
             </tr>
           ))}
         </tbody>

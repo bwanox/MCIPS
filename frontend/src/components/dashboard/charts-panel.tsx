@@ -38,7 +38,12 @@ export const ChartsPanel = ({
   return (
     <section className="chart-grid">
       <article className="panel chart-panel">
-        <h2>Risk Distribution</h2>
+        <div className="panel-header">
+          <div>
+            <h2>Risk Distribution</h2>
+            <p className="panel-subtext">Immediate spread of alert criticality across the queue.</p>
+          </div>
+        </div>
         <ResponsiveContainer width="100%" height={250}>
           <BarChart data={riskData}>
             <CartesianGrid stroke="#17304a" vertical={false} />
@@ -50,7 +55,12 @@ export const ChartsPanel = ({
         </ResponsiveContainer>
       </article>
       <article className="panel chart-panel">
-        <h2>Dataset Families</h2>
+        <div className="panel-header">
+          <div>
+            <h2>Dataset Families</h2>
+            <p className="panel-subtext">Coverage across intrusion, phishing, auth, and monitoring signals.</p>
+          </div>
+        </div>
         <ResponsiveContainer width="100%" height={250}>
           <BarChart data={familyData}>
             <CartesianGrid stroke="#17304a" vertical={false} />
@@ -62,7 +72,12 @@ export const ChartsPanel = ({
         </ResponsiveContainer>
       </article>
       <article className="panel chart-panel">
-        <h2>Label Distribution</h2>
+        <div className="panel-header">
+          <div>
+            <h2>Label Distribution</h2>
+            <p className="panel-subtext">How the detection layer is classifying current activity.</p>
+          </div>
+        </div>
         <ResponsiveContainer width="100%" height={250}>
           <PieChart>
             <Pie data={labelData} dataKey="value" nameKey="name" outerRadius={80}>
@@ -75,7 +90,12 @@ export const ChartsPanel = ({
         </ResponsiveContainer>
       </article>
       <article className="panel chart-panel">
-        <h2>Event Types</h2>
+        <div className="panel-header">
+          <div>
+            <h2>Event Types</h2>
+            <p className="panel-subtext">Normalized event envelope usage across all ingest paths.</p>
+          </div>
+        </div>
         <ResponsiveContainer width="100%" height={250}>
           <BarChart data={eventTypeData}>
             <CartesianGrid stroke="#17304a" vertical={false} />
@@ -87,7 +107,12 @@ export const ChartsPanel = ({
         </ResponsiveContainer>
       </article>
       <article className="panel chart-panel chart-wide">
-        <h2>Timeline</h2>
+        <div className="panel-header">
+          <div>
+            <h2>Timeline</h2>
+            <p className="panel-subtext">Arrival pattern of alerts over the selected monitoring window.</p>
+          </div>
+        </div>
         <ResponsiveContainer width="100%" height={250}>
           <LineChart data={timeline}>
             <CartesianGrid stroke="#17304a" vertical={false} />
