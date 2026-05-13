@@ -1,25 +1,26 @@
-export type EventType = "SMS" | "EMAIL" | "TEXT" | "LOGIN_ATTEMPT";
-export type EventSource = "manual" | "simulation" | "external";
-export type ThreatLabel = "phishing" | "scam" | "safe" | "toxic" | "suspicious" | "suspicious_login";
+import type { CyberEventEnvelope, CyberEventSource, CyberEventType, DatasetFamily } from "../../types/cyberEvent.js";
+
+export type EventType = CyberEventType;
+export type EventSource = CyberEventSource;
+export type ThreatLabel =
+  | "phishing"
+  | "scam"
+  | "safe"
+  | "toxic"
+  | "suspicious"
+  | "suspicious_login"
+  | "network_intrusion"
+  | "log_anomaly";
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
 export type AlertSeverity = "critical" | "high" | "medium" | "low";
 
-export interface EventPayload {
-  type: EventType;
-  content: string;
-  source: EventSource;
-  ipAddress?: string;
-  country?: string;
-  device?: string;
-  userAgent?: string;
-}
-
-export interface SanitizedContentResult {
-  sanitizedContent: string;
+export interface SanitizedEventResult {
+  sanitizedPayload: Record<string, unknown>;
   sanitizedPreview: string;
   piiDetected: boolean;
   detectedBank?: string;
   contentLength: number;
+  derivedFeatures: Record<string, unknown>;
 }
 
 export interface AiInferenceResult {
@@ -34,7 +35,10 @@ export interface AiInferenceResult {
 
 export interface AlertRecord {
   id: string;
+  eventId: string;
+  tenantId: string;
   eventType: EventType;
+  datasetFamily: DatasetFamily;
   label: ThreatLabel;
   risk: RiskLevel;
   severity: AlertSeverity;
@@ -48,6 +52,8 @@ export interface AlertRecord {
   contentLength: number;
   piiDetected: boolean;
   detectedBank?: string;
+  payloadSummary: Record<string, unknown>;
+  sanitizedPayload: Record<string, unknown>;
   modelUsed: string;
   fallbackUsed: boolean;
   timestamp: string;
@@ -55,13 +61,19 @@ export interface AlertRecord {
 
 export interface EventLogRecord {
   id: string;
+  eventId: string;
+  tenantId: string;
   eventType: EventType;
+  datasetFamily: DatasetFamily;
   source: EventSource;
+  contentLength: number;
   label: ThreatLabel;
   risk: RiskLevel;
   sanitizedPreview: string;
   piiDetected: boolean;
   detectedBank?: string;
+  sanitizedPayload: Record<string, unknown>;
+  modelUsed: string;
   fallbackUsed: boolean;
   timestamp: string;
 }
@@ -78,11 +90,17 @@ export interface TimelinePoint {
 export interface StatsSummary {
   totalAlerts: number;
   highRiskAlerts: number;
+  mediumRiskAlerts: number;
+  lowRiskAlerts: number;
   phishingCount: number;
   suspiciousLoginCount: number;
   averageConfidence: number;
   riskDistribution: Record<RiskLevel, number>;
   labelDistribution: Record<ThreatLabel, number>;
+  datasetFamilyDistribution: Array<{ family: DatasetFamily; count: number }>;
+  eventTypeDistribution: Array<{ eventType: EventType; count: number }>;
   topFeatures: Array<{ feature: string; count: number }>;
   recentAlerts: AlertRecord[];
 }
+
+export type EventPayload = CyberEventEnvelope;

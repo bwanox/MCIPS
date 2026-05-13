@@ -4,14 +4,22 @@ import { privacySanitizer } from "../modules/events/application/services/privacy
 
 describe("privacySanitizer", () => {
   it("masks PII and bank names while keeping metadata", () => {
-    const result = privacySanitizer(
-      "Banque Populaire alert for john@example.com. OTP 934455 for account 123456789012 and call +212612345678."
-    );
+    const result = privacySanitizer({
+      eventId: "evt-1",
+      eventType: "sms.message.received",
+      tenantId: "tenant-demo",
+      source: "manual",
+      eventTimestampUtc: "2025-01-15T14:23:44.998Z",
+      payload: {
+        content:
+          "Banque Populaire alert for john@example.com. OTP 934455 for account 123456789012 and call +212612345678."
+      }
+    });
 
-    expect(result.sanitizedContent).toContain("[BANK]");
-    expect(result.sanitizedContent).toContain("[EMAIL]");
-    expect(result.sanitizedContent).toContain("[ACCOUNT]");
-    expect(result.sanitizedContent).toContain("[PHONE]");
+    expect(String(result.sanitizedPayload.content)).toContain("[BANK]");
+    expect(String(result.sanitizedPayload.content)).toContain("[EMAIL]");
+    expect(String(result.sanitizedPayload.content)).toContain("[ACCOUNT]");
+    expect(String(result.sanitizedPayload.content)).toContain("[PHONE]");
     expect(result.piiDetected).toBe(true);
     expect(result.detectedBank?.toLowerCase()).toContain("banque populaire");
   });

@@ -7,8 +7,9 @@ import type { AlertRecord, EventLogRecord } from "../../../../shared/types/platf
 import { alertEngine } from "../../../alerts/application/services/alert-engine.js";
 import { AiInferenceService } from "./ai-inference.service.js";
 import { privacySanitizer } from "./privacy-sanitizer.js";
-import { eventSchema, type EventSchemaInput } from "../validators/event.schema.js";
+import { parseIncomingCyberEvent, parseIncomingCyberEventBatch } from "../validators/event.schema.js";
 import { StatsService } from "../../../stats/application/services/stats.service.js";
+import { isStructuredDatasetEvent, scoreDatasetEvent } from "../../../../services/datasetScoring.service.js";
 
 export class IngestionPipelineService {
   constructor(
@@ -19,33 +20,48 @@ export class IngestionPipelineService {
     private readonly io?: AppSocketServer
   ) {}
 
-  async ingest(rawInput: EventSchemaInput): Promise<AlertRecord> {
-    const payload = eventSchema.parse(rawInput);
-    const sanitized = privacySanitizer(payload.content);
-    const inference = await this.aiInferenceService.analyze({
-      ...payload,
-      content: sanitized.sanitizedContent
-    });
+  async ingest(rawInput: unknown): Promise<AlertRecord> {
+    const event = parseIncomingCyberEvent(rawInput);
+    const sanitized = privacySanitizer(event);
+    const inference =
+      isStructuredDatasetEvent(event.eventType) && scoreDatasetEvent(event)
+        ? scoreDatasetEvent({
+            ...event,
+            payload: sanitized.sanitizedPayload
+          })
+        : await this.aiInferenceService.analyze(
+            {
+              ...event,
+              payload: sanitized.sanitizedPayload
+            },
+            sanitized
+          );
 
     const alert = alertEngine(
       {
-        ...payload,
-        content: sanitized.sanitizedContent
+        ...event,
+        payload: sanitized.sanitizedPayload
       },
       sanitized,
-      inference
+      inference!
     );
 
     const eventLog: EventLogRecord = {
       id: randomUUID(),
-      eventType: payload.type,
-      source: payload.source,
-      label: inference.label,
-      risk: inference.risk,
+      eventId: event.eventId,
+      tenantId: event.tenantId,
+      eventType: event.eventType,
+      datasetFamily: alert.datasetFamily,
+      source: event.source,
+      contentLength: sanitized.contentLength,
+      label: inference!.label,
+      risk: inference!.risk,
       sanitizedPreview: sanitized.sanitizedPreview,
       piiDetected: sanitized.piiDetected,
       detectedBank: sanitized.detectedBank,
-      fallbackUsed: inference.fallbackUsed,
+      sanitizedPayload: sanitized.sanitizedPayload,
+      modelUsed: inference!.modelUsed,
+      fallbackUsed: inference!.fallbackUsed,
       timestamp: alert.timestamp
     };
 
@@ -58,5 +74,16 @@ export class IngestionPipelineService {
     this.io?.emit("stats:update", summary);
 
     return alert;
+  }
+
+  async ingestBatch(rawInput: unknown): Promise<AlertRecord[]> {
+    const events = parseIncomingCyberEventBatch(rawInput);
+    const alerts: AlertRecord[] = [];
+
+    for (const event of events) {
+      alerts.push(await this.ingest(event));
+    }
+
+    return alerts;
   }
 }

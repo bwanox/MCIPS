@@ -1,13 +1,19 @@
 import type { Alert, RiskLevel, ThreatLabel } from "./alert";
+import type { CyberEventType } from "./event";
+import type { DatasetFamily } from "./alert";
 
 export interface StatsSummary {
   totalAlerts: number;
   highRiskAlerts: number;
+  mediumRiskAlerts: number;
+  lowRiskAlerts: number;
   phishingCount: number;
   suspiciousLoginCount: number;
   averageConfidence: number;
   riskDistribution: Record<RiskLevel, number>;
   labelDistribution: Record<ThreatLabel, number>;
+  datasetFamilyDistribution: Array<{ family: DatasetFamily; count: number }>;
+  eventTypeDistribution: Array<{ eventType: CyberEventType; count: number }>;
   topFeatures: Array<{ feature: string; count: number }>;
   recentAlerts: Alert[];
 }

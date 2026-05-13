@@ -3,7 +3,10 @@ import mongoose, { Schema } from "mongoose";
 const alertSchema = new Schema(
   {
     id: { type: String, required: true, unique: true },
+    eventId: { type: String, required: true, index: true },
+    tenantId: { type: String, required: true, index: true },
     eventType: { type: String, required: true },
+    datasetFamily: { type: String, required: true },
     label: { type: String, required: true },
     risk: { type: String, required: true },
     severity: { type: String, required: true },
@@ -17,6 +20,8 @@ const alertSchema = new Schema(
     contentLength: { type: Number, required: true },
     piiDetected: { type: Boolean, required: true },
     detectedBank: { type: String },
+    payloadSummary: { type: Schema.Types.Mixed, required: true },
+    sanitizedPayload: { type: Schema.Types.Mixed, required: true },
     modelUsed: { type: String, required: true },
     fallbackUsed: { type: Boolean, required: true },
     timestamp: { type: String, required: true }

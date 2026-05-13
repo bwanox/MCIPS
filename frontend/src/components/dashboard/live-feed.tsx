@@ -22,13 +22,26 @@ export const LiveFeed = ({ alerts }: { alerts: Alert[] }) => (
             <strong>{alert.title}</strong>
             <span>{new Date(alert.timestamp).toLocaleTimeString()}</span>
           </div>
+          <div className="tag-row">
+            <span className="badge">{alert.eventType}</span>
+            <span className="badge">{alert.datasetFamily}</span>
+            <span className="badge">{alert.severity}</span>
+          </div>
           <p>{alert.sanitizedPreview}</p>
+          <p>{alert.explanation}</p>
           <div className="tag-row">
             <span className="badge">{alert.label}</span>
             <span className="badge">{alert.risk}</span>
+            <span className="badge">{alert.confidence.toFixed(2)}</span>
+            <span className="badge">{alert.modelUsed}</span>
             {alert.piiDetected ? <span className="badge">PII masked</span> : null}
             {alert.detectedBank ? <span className="badge">{alert.detectedBank}</span> : null}
             {alert.fallbackUsed ? <span className="badge badge-warn">AI fallback</span> : null}
+            {alert.features.map((feature) => (
+              <span key={feature} className="badge">
+                {feature}
+              </span>
+            ))}
           </div>
         </article>
       ))}
