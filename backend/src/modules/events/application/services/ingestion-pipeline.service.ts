@@ -10,6 +10,7 @@ import { privacySanitizer } from "./privacy-sanitizer.js";
 import { parseIncomingCyberEvent, parseIncomingCyberEventBatch } from "../validators/event.schema.js";
 import { StatsService } from "../../../stats/application/services/stats.service.js";
 import { isStructuredDatasetEvent, scoreDatasetEvent } from "../../../../services/datasetScoring.service.js";
+import { enrichAlertWithIncidentCorrelation } from "../../../../services/incidentCorrelation.service.js";
 
 export class IngestionPipelineService {
   constructor(
@@ -23,6 +24,7 @@ export class IngestionPipelineService {
   async ingest(rawInput: unknown): Promise<AlertRecord> {
     const event = parseIncomingCyberEvent(rawInput);
     const sanitized = privacySanitizer(event);
+    const priorAlerts = await this.alertsRepository.list();
     const inference =
       isStructuredDatasetEvent(event.eventType) && scoreDatasetEvent(event)
         ? scoreDatasetEvent({
@@ -37,17 +39,23 @@ export class IngestionPipelineService {
             sanitized
           );
 
-    const alert = alertEngine(
-      {
-        ...event,
-        payload: sanitized.sanitizedPayload
-      },
+    const alert = enrichAlertWithIncidentCorrelation({
+      draftAlert: alertEngine(
+        {
+          ...event,
+          payload: sanitized.sanitizedPayload
+        },
+        sanitized,
+        inference!
+      ),
+      event,
       sanitized,
-      inference!
-    );
+      priorAlerts
+    });
 
     const eventLog: EventLogRecord = {
       id: randomUUID(),
+      incidentId: alert.incidentId,
       eventId: event.eventId,
       tenantId: event.tenantId,
       eventType: event.eventType,

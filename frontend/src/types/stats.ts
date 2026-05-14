@@ -4,6 +4,7 @@ import type { DatasetFamily } from "./alert";
 
 export interface StatsSummary {
   totalAlerts: number;
+  correlatedIncidentsCount: number;
   highRiskAlerts: number;
   mediumRiskAlerts: number;
   lowRiskAlerts: number;
@@ -15,6 +16,7 @@ export interface StatsSummary {
   datasetFamilyDistribution: Array<{ family: DatasetFamily; count: number }>;
   eventTypeDistribution: Array<{ eventType: CyberEventType; count: number }>;
   topFeatures: Array<{ feature: string; count: number }>;
+  topRiskFactors: Array<{ factor: string; count: number }>;
   recentAlerts: Alert[];
 }
 

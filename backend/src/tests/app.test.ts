@@ -325,4 +325,80 @@ describe("MCIPS backend", () => {
     expect(families.has("logging_monitoring")).toBe(true);
     expect(families.has("phishing_email")).toBe(true);
   });
+
+  it("correlates phishing and suspicious login into a higher-severity incident and exports it", async () => {
+    process.env.ADMIN_PASSWORD_HASH = await bcrypt.hash("admin123", 10);
+    const axios = await import("axios");
+    vi.mocked(axios.default.post)
+      .mockResolvedValueOnce({
+        data: {
+          label: "phishing",
+          confidence: 0.92,
+          risk: "MEDIUM",
+          explanation: "Credential lure with urgent bank language",
+          features: ["otp_request", "credential_request"],
+          model_used: "hybrid_ai_v1",
+          fallback_used: false
+        }
+      })
+      .mockResolvedValueOnce({
+        data: {
+          label: "suspicious_login",
+          confidence: 0.82,
+          risk: "MEDIUM",
+          explanation: "New device and unknown access context",
+          features: ["new_device", "ip_anomaly"],
+          model_used: "hybrid_ai_v1",
+          fallback_used: false
+        }
+      });
+
+    const { createApp } = await import("../app.js");
+    const { app } = await createApp();
+
+    const phishingResponse = await request(app).post("/api/events").send({
+      event_type: "sms.message.received",
+      tenant_id: "tenant-correlation",
+      source: "manual",
+      payload: {
+        content: "Votre compte CIH est bloque. Confirmez OTP 492911 sur https://cih-secure.example"
+      }
+    });
+
+    const loginResponse = await request(app).post("/api/events").send({
+      event_type: "auth.login.attempt",
+      tenant_id: "tenant-correlation",
+      source: "manual",
+      payload: {
+        content: "Suspicious login attempt",
+        ip_address: "192.0.2.44",
+        country: "unknown",
+        device: "unknown device",
+        user_agent: "UnknownBot/1.0"
+      }
+    });
+
+    expect(phishingResponse.status).toBe(201);
+    expect(loginResponse.status).toBe(201);
+    expect(loginResponse.body.correlationDetected).toBe(true);
+    expect(loginResponse.body.severity).toBe("critical");
+    expect(loginResponse.body.explainableRisk.finalScore).toBeGreaterThanOrEqual(75);
+    expect(loginResponse.body.recommendedActions.length).toBeGreaterThan(0);
+
+    const login = await request(app).post("/api/auth/login").send({
+      email: "admin@mcips.local",
+      password: "admin123"
+    });
+    const token = login.body.token;
+
+    const exportResponse = await request(app)
+      .get(`/api/alerts/${loginResponse.body.id}/export`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(exportResponse.status).toBe(200);
+    expect(exportResponse.body.project).toBe("MCIPS SecureLens");
+    expect(exportResponse.body.incidentId).toBeTruthy();
+    expect(Array.isArray(exportResponse.body.recommendedActions)).toBe(true);
+    expect(JSON.stringify(exportResponse.body)).not.toContain("Votre compte CIH est bloque");
+  });
 });

@@ -1,14 +1,35 @@
-# MCIPS
+# MCIPS SecureLens
 
-MCIPS is a realtime security monitoring demo platform with three parts:
+MCIPS SecureLens is an AI-powered, privacy-preserving cyber defense assistant for SMEs and small institutions without dedicated cybersecurity teams.
+
+Competition version focus:
+
+- phishing SMS/email detection
+- suspicious login detection
+- network intrusion and anomaly detection
+- incident correlation with explainable risk scoring
+- privacy-by-design sanitization before AI, storage, and dashboard display
+
+The platform has three parts:
 
 - `ai-service`: the existing Python inference microservice that classifies sanitized security events.
 - `backend`: a TypeScript orchestration layer that ingests events, sanitizes private content, calls the AI service, persists sanitized metadata, emits Socket.IO updates, and exposes auth/stats/simulation APIs.
-- `frontend`: a Next.js App Router SOC dashboard with JWT login, live alerts, charts, simulator controls, and manual event submission.
+- `frontend`: a Next.js App Router competition dashboard with JWT login, incident-centric monitoring, explainable scoring, demo controls, and manual scenario submission.
+
+## Competition Story
+
+MCIPS SecureLens helps smaller organizations detect phishing lures, suspicious access attempts, and malicious network behavior in real time, then correlates those signals into a single incident view with recommended response actions.
+
+The current competition build explicitly emphasizes:
+
+- Morocco-relevant scam and impersonation examples
+- incident correlation across message, login, and network signals
+- explainable risk scoring with visible contributing factors
+- privacy-by-design sanitization and safe evidence handling
 
 ## Unified Event Architecture
 
-MCIPS now supports both legacy text events and a unified cyber event envelope:
+MCIPS SecureLens supports both legacy text events and a unified cyber event envelope:
 
 ```json
 {
@@ -43,9 +64,26 @@ remain supported and are normalized internally before processing.
 6. Natural language events are sanitized and then sent to the AI inference route. The backend accepts `AI_SERVICE_URL` as either the AI root URL or the `/api/v1` base and resolves the final inference path automatically.
 7. If AI times out or fails, backend generates a fallback `suspicious / MEDIUM` result.
 8. `alertEngine` converts the result into a standardized alert contract used across all event families.
-9. Backend stores sanitized `Alert` and `EventLog` records in MongoDB or in-memory repositories.
-10. Backend emits `alert:new`, `stats:update`, `simulation:status`, and `system:status` over Socket.IO.
-11. Frontend renders only sanitized previews, derived fields, and standardized alert metadata in the SOC dashboard.
+9. `incidentCorrelation.service.ts` links related signals inside a short response window, raises severity when warranted, generates an incident summary, and adds recommended response actions.
+10. Backend stores sanitized `Alert` and `EventLog` records in MongoDB or in-memory repositories.
+11. Backend emits `alert:new`, `stats:update`, `simulation:status`, and `system:status` over Socket.IO.
+12. Frontend renders only sanitized previews, derived fields, standardized alert metadata, explainable scoring factors, and exportable incident artifacts.
+
+## 3-Signal MVP
+
+The competition build is intentionally centered on three high-value signals:
+
+1. Phishing message detection
+2. Suspicious login detection
+3. Network intrusion or anomaly detection
+
+Those signals are elevated into incidents through correlation and then surfaced with:
+
+- incident summary
+- explainable risk score
+- correlated signals
+- recommended actions
+- privacy-safe export JSON
 
 ## Supported Event Families
 
@@ -57,6 +95,14 @@ remain supported and are normalized internally before processing.
 - Generic Email Message Events
 - Generic Text Message Events
 
+## Morocco-Relevant Demo Examples
+
+- Fake CIH or Attijariwafa-style SMS asking for OTP confirmation
+- Fake OTP verification request with an urgent link
+- Fake university or institution login page lure
+- Suspicious login shortly after a phishing lure
+- Institution-targeted network intrusion telemetry
+
 ## Privacy Policy
 
 - Raw data is sanitized before AI analysis or persistence.
@@ -66,6 +112,16 @@ remain supported and are normalized internally before processing.
 - Structured dataset events keep safe numerical/categorical features only.
 - Natural language events mask email, phone, OTP, account, CIN-like IDs, URLs, bank names, and related PII before AI/storage.
 - The sanitizer masks email, phone, OTP/PIN patterns, long numeric identifiers, account-like numbers, CIN-like IDs, URLs, obvious honorific-name cases, and supported Moroccan bank names.
+
+## Incident Correlation and Explainable Scoring
+
+SecureLens does not stop at isolated detections. The backend now:
+
+- correlates phishing-like message signals with suspicious logins inside a short response window
+- optionally reinforces that incident with network intrusion telemetry
+- computes a visible score from base risk, detection factors, and correlation bonuses
+- generates an analyst-facing incident summary
+- attaches recommended actions such as blocking a sender, forcing a password reset, reviewing logs, or inspecting affected hosts
 
 ## Backend Setup
 
@@ -162,6 +218,7 @@ Authenticated:
 - `GET /api/alerts`
 - `GET /api/alerts/recent`
 - `GET /api/alerts/:id`
+- `GET /api/alerts/:id/export`
 - `GET /api/stats/summary`
 - `GET /api/stats/timeline?range=today|week|month`
 - `POST /api/simulation/start`
@@ -237,7 +294,19 @@ curl http://localhost:4000/api/stats/summary \
 
 ## Demo Walkthrough
 
-1. Start the AI service.
+Primary competition scenario:
+
+1. Trigger a fake Moroccan bank SMS or phishing email.
+2. Show the sanitizer masking private content and preserving only safe evidence.
+3. Trigger a suspicious login from a new IP or device.
+4. Show the correlation engine linking both signals and escalating severity.
+5. Highlight the explainable risk factors and recommended actions.
+6. Export the incident JSON artifact.
+
+Secondary proof point:
+
+1. Trigger a network intrusion or anomaly signal.
+2. Show that structured dataset events are scored locally even if the external AI service is unavailable.
 2. Start the backend in memory mode.
 3. Start the frontend.
 4. Log in with `ADMIN_EMAIL` and the password matching `ADMIN_PASSWORD_HASH`.

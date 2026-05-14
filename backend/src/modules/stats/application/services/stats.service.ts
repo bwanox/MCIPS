@@ -19,6 +19,7 @@ export class StatsService {
   async getSummary(): Promise<StatsSummary> {
     const alerts = await this.alertsRepository.list();
     const topFeatures = new Map<string, number>();
+    const topRiskFactors = new Map<string, number>();
     const datasetFamilies = new Map<string, number>();
     const eventTypes = new Map<string, number>();
 
@@ -26,12 +27,16 @@ export class StatsService {
       for (const feature of alert.features) {
         topFeatures.set(feature, (topFeatures.get(feature) ?? 0) + 1);
       }
+      for (const factor of alert.explainableRisk.factors) {
+        topRiskFactors.set(factor.label, (topRiskFactors.get(factor.label) ?? 0) + 1);
+      }
       datasetFamilies.set(alert.datasetFamily, (datasetFamilies.get(alert.datasetFamily) ?? 0) + 1);
       eventTypes.set(alert.eventType, (eventTypes.get(alert.eventType) ?? 0) + 1);
     }
 
     return {
       totalAlerts: alerts.length,
+      correlatedIncidentsCount: alerts.filter((alert) => alert.correlationDetected).length,
       highRiskAlerts: alerts.filter((alert) => alert.risk === "HIGH").length,
       mediumRiskAlerts: alerts.filter((alert) => alert.risk === "MEDIUM").length,
       lowRiskAlerts: alerts.filter((alert) => alert.risk === "LOW").length,
@@ -61,6 +66,10 @@ export class StatsService {
         .sort((left, right) => right[1] - left[1])
         .slice(0, 8)
         .map(([feature, count]) => ({ feature, count })),
+      topRiskFactors: [...topRiskFactors.entries()]
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, 8)
+        .map(([factor, count]) => ({ factor, count })),
       recentAlerts: alerts.slice(0, 10)
     };
   }

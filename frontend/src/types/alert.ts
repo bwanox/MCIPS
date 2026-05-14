@@ -20,8 +20,41 @@ export type DatasetFamily =
   | "email_message"
   | "text_message";
 
+export interface RiskFactor {
+  key: string;
+  label: string;
+  weight: number;
+  detail: string;
+}
+
+export interface CorrelatedSignal {
+  alertId: string;
+  eventId: string;
+  eventType: CyberEventType;
+  datasetFamily: DatasetFamily;
+  label: ThreatLabel;
+  risk: RiskLevel;
+  title: string;
+  timestamp: string;
+}
+
+export interface ExplainableRisk {
+  baseScore: number;
+  correlationBonus: number;
+  finalScore: number;
+  escalated: boolean;
+  factors: RiskFactor[];
+}
+
 export interface Alert {
   id: string;
+  incidentId: string;
+  incidentType: string;
+  correlationDetected: boolean;
+  incidentSummary: string;
+  recommendedActions: string[];
+  correlatedSignals: CorrelatedSignal[];
+  explainableRisk: ExplainableRisk;
   eventId: string;
   tenantId: string;
   eventType: CyberEventType;

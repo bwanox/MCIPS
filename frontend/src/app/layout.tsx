@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "MCIPS SOC Dashboard",
-  description: "Real-time detection dashboard for sanitized event alerts"
+  title: "MCIPS SecureLens",
+  description: "AI-powered, privacy-preserving cyber defense assistant for phishing, login, and network threats"
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

@@ -9,5 +9,9 @@ export const alertsService = {
   async recent(): Promise<Alert[]> {
     const response = await apiClient.get<Alert[]>("/api/alerts/recent");
     return response.data;
+  },
+  async exportIncident(alertId: string): Promise<Record<string, unknown>> {
+    const response = await apiClient.get<Record<string, unknown>>(`/api/alerts/${alertId}/export`);
+    return response.data;
   }
 };

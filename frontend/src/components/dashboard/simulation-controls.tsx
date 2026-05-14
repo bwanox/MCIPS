@@ -16,8 +16,8 @@ export const SimulationControls = ({
   <section className="panel">
     <div className="panel-header">
       <div>
-        <h2>Simulator</h2>
-        <p className="panel-subtext">Drive synthetic traffic through the exact same realtime pipeline.</p>
+        <h2>Demo Scenario Engine</h2>
+        <p className="panel-subtext">Drive Morocco-relevant threat examples through the exact same realtime pipeline.</p>
       </div>
       <span className={`badge ${status?.running ? "badge-live" : ""}`}>
         {status?.running ? "Running" : "Stopped"}
@@ -34,9 +34,9 @@ export const SimulationControls = ({
       </div>
     </div>
     <div className="button-row">
-      <button onClick={onStart}>Start Stream</button>
+      <button onClick={onStart}>Start Demo Stream</button>
       <button className="secondary-button" onClick={onStop}>Stop Stream</button>
-      <button className="ghost-button" onClick={onOnce}>Inject Single Event</button>
+      <button className="ghost-button" onClick={onOnce}>Run Next Scenario Step</button>
     </div>
   </section>
 );
