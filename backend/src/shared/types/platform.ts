@@ -14,6 +14,32 @@ export type ThreatLabel =
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
 export type AlertSeverity = "critical" | "high" | "medium" | "low";
 
+export interface RiskFactor {
+  key: string;
+  label: string;
+  weight: number;
+  detail: string;
+}
+
+export interface CorrelatedSignal {
+  alertId: string;
+  eventId: string;
+  eventType: EventType;
+  datasetFamily: DatasetFamily;
+  label: ThreatLabel;
+  risk: RiskLevel;
+  title: string;
+  timestamp: string;
+}
+
+export interface ExplainableRiskScore {
+  baseScore: number;
+  correlationBonus: number;
+  finalScore: number;
+  escalated: boolean;
+  factors: RiskFactor[];
+}
+
 export interface SanitizedEventResult {
   sanitizedPayload: Record<string, unknown>;
   sanitizedPreview: string;
@@ -35,6 +61,13 @@ export interface AiInferenceResult {
 
 export interface AlertRecord {
   id: string;
+  incidentId: string;
+  incidentType: string;
+  correlationDetected: boolean;
+  incidentSummary: string;
+  recommendedActions: string[];
+  correlatedSignals: CorrelatedSignal[];
+  explainableRisk: ExplainableRiskScore;
   eventId: string;
   tenantId: string;
   eventType: EventType;
@@ -61,6 +94,7 @@ export interface AlertRecord {
 
 export interface EventLogRecord {
   id: string;
+  incidentId: string;
   eventId: string;
   tenantId: string;
   eventType: EventType;
@@ -89,6 +123,7 @@ export interface TimelinePoint {
 
 export interface StatsSummary {
   totalAlerts: number;
+  correlatedIncidentsCount: number;
   highRiskAlerts: number;
   mediumRiskAlerts: number;
   lowRiskAlerts: number;
@@ -100,6 +135,7 @@ export interface StatsSummary {
   datasetFamilyDistribution: Array<{ family: DatasetFamily; count: number }>;
   eventTypeDistribution: Array<{ eventType: EventType; count: number }>;
   topFeatures: Array<{ feature: string; count: number }>;
+  topRiskFactors: Array<{ factor: string; count: number }>;
   recentAlerts: AlertRecord[];
 }
 

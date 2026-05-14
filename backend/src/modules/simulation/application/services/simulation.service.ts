@@ -17,19 +17,8 @@ const demoEvents: CyberEventEnvelope[] = [
     eventTimestampUtc: new Date().toISOString(),
     source: "simulation",
     payload: {
-      content: "Votre compte CIH est bloque. Cliquez ici https://bank.example pour verifier OTP 492911.",
+      content: "Votre compte CIH est bloque. Verifiez votre OTP 492911 sur https://cih-verification.example maintenant.",
       sender: "unknown"
-    }
-  },
-  {
-    eventId: "sim-sms-safe",
-    eventType: "sms.message.received",
-    tenantId: "tenant-demo",
-    eventTimestampUtc: new Date().toISOString(),
-    source: "simulation",
-    payload: {
-      content: "Package delivered successfully. Thank you for using MCIPS demo notifications.",
-      sender: "delivery-service"
     }
   },
   {
@@ -39,7 +28,7 @@ const demoEvents: CyberEventEnvelope[] = [
     eventTimestampUtc: new Date().toISOString(),
     source: "simulation",
     payload: {
-      content: "Login attempt detected from unfamiliar device",
+      content: "Suspicious login attempt after phishing lure",
       ip_address: "192.0.2.44",
       country: "unknown",
       device: "unknown device",
@@ -68,24 +57,31 @@ const demoEvents: CyberEventEnvelope[] = [
     }
   },
   {
-    eventId: "sim-network-safe",
-    eventType: "net.intrusion.suspected",
+    eventId: "sim-sms-safe",
+    eventType: "sms.message.received",
     tenantId: "tenant-demo",
     eventTimestampUtc: new Date().toISOString(),
     source: "simulation",
     payload: {
-      protocol_type: "tcp",
-      service: "http",
-      flag: "SF",
-      class: "normal",
-      difficulty_level: 5,
-      src_bytes: 128,
-      dst_bytes: 256,
-      num_failed_logins: 0,
-      root_shell: 0,
-      num_compromised: 0,
-      serror_rate: 0,
-      rerror_rate: 0
+      content: "Votre rendez-vous administratif est confirme pour demain a 09:00.",
+      sender: "institution-service"
+    }
+  },
+  {
+    eventId: "sim-phishing-email",
+    eventType: "phishing.email.detected",
+    tenantId: "tenant-demo",
+    eventTimestampUtc: new Date().toISOString(),
+    source: "simulation",
+    payload: {
+      label: "Phishing Email",
+      label_binary: 1,
+      char_count: 1842,
+      word_count: 312,
+      url_count: 3,
+      has_html: true,
+      ml_score_phishing: 0.96,
+      top_tokens: ["verify", "account", "campus"]
     }
   },
   {
@@ -105,20 +101,24 @@ const demoEvents: CyberEventEnvelope[] = [
     }
   },
   {
-    eventId: "sim-phishing-email",
-    eventType: "phishing.email.detected",
+    eventId: "sim-network-safe",
+    eventType: "net.intrusion.suspected",
     tenantId: "tenant-demo",
     eventTimestampUtc: new Date().toISOString(),
     source: "simulation",
     payload: {
-      label: "Phishing Email",
-      label_binary: 1,
-      char_count: 1842,
-      word_count: 312,
-      url_count: 3,
-      has_html: true,
-      ml_score_phishing: 0.96,
-      top_tokens: ["verify", "account"]
+      protocol_type: "tcp",
+      service: "http",
+      flag: "SF",
+      class: "normal",
+      difficulty_level: 5,
+      src_bytes: 128,
+      dst_bytes: 256,
+      num_failed_logins: 0,
+      root_shell: 0,
+      num_compromised: 0,
+      serror_rate: 0,
+      rerror_rate: 0
     }
   }
 ];

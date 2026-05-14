@@ -3,6 +3,7 @@ import mongoose, { Schema } from "mongoose";
 const eventLogSchema = new Schema(
   {
     id: { type: String, required: true, unique: true },
+    incidentId: { type: String, required: true, index: true },
     eventId: { type: String, required: true, index: true },
     tenantId: { type: String, required: true, index: true },
     eventType: { type: String, required: true },

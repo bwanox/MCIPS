@@ -106,6 +106,19 @@ export const alertEngine = (
 
   return {
     id: randomUUID(),
+    incidentId: `incident-${payload.eventId}`,
+    incidentType: datasetFamily,
+    correlationDetected: false,
+    incidentSummary: "",
+    recommendedActions: [],
+    correlatedSignals: [],
+    explainableRisk: {
+      baseScore: 0,
+      correlationBonus: 0,
+      finalScore: 0,
+      escalated: false,
+      factors: []
+    },
     eventId: payload.eventId,
     tenantId: payload.tenantId,
     eventType: payload.eventType,

@@ -6,8 +6,8 @@ export const RecentAlertsTable = ({ alerts }: { alerts: Alert[] }) => (
   <section className="panel">
     <div className="panel-header">
       <div>
-        <h2>Recent Alerts</h2>
-        <p className="panel-subtext">Fast scan table for the most recent incidents in the SOC queue.</p>
+        <h2>Recent Incident Queue</h2>
+        <p className="panel-subtext">Fast triage table showing incident type, score, correlation status, and privacy-safe evidence.</p>
       </div>
       <span className="badge">Sanitized only</span>
     </div>
@@ -16,12 +16,12 @@ export const RecentAlertsTable = ({ alerts }: { alerts: Alert[] }) => (
         <thead>
           <tr>
             <th>Time</th>
-            <th>Type</th>
-            <th>Family</th>
-            <th>Label</th>
+            <th>Incident</th>
+            <th>Signal</th>
+            <th>Assessment</th>
             <th>Severity</th>
-            <th>Preview</th>
-            <th>Model</th>
+            <th>Explainable Score</th>
+            <th>Privacy-safe evidence</th>
           </tr>
         </thead>
         <tbody>
@@ -29,20 +29,28 @@ export const RecentAlertsTable = ({ alerts }: { alerts: Alert[] }) => (
             <tr key={alert.id}>
               <td>{new Date(alert.timestamp).toLocaleString()}</td>
               <td>
-                <span className="table-title">{alert.eventType}</span>
-                <span className="table-subtext">{alert.source}</span>
+                <span className="table-title">{alert.title}</span>
+                <span className="table-subtext">{alert.incidentType.replaceAll("_", " ")}</span>
               </td>
-              <td>{alert.datasetFamily}</td>
+              <td>
+                <span className="table-title">{alert.datasetFamily}</span>
+                <span className="table-subtext">{alert.eventType}</span>
+              </td>
               <td>
                 <span className="table-title">{alert.label}</span>
-                <span className="table-subtext">{alert.risk}</span>
+                <span className="table-subtext">
+                  {alert.risk} • {Math.round(alert.confidence * 100)}% confidence
+                </span>
               </td>
-              <td>{alert.severity}</td>
-              <td>{alert.sanitizedPreview}</td>
               <td>
-                <span className="table-title">{alert.modelUsed}</span>
-                <span className="table-subtext">{Math.round(alert.confidence * 100)}% confidence</span>
+                <span className="table-title">{alert.severity}</span>
+                <span className="table-subtext">{alert.correlationDetected ? "correlated incident" : alert.source}</span>
               </td>
+              <td>
+                <span className="table-title">{alert.explainableRisk.finalScore}/100</span>
+                <span className="table-subtext">+{alert.explainableRisk.correlationBonus} correlation bonus</span>
+              </td>
+              <td>{alert.sanitizedPreview}</td>
             </tr>
           ))}
         </tbody>

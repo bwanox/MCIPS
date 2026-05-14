@@ -40,5 +40,47 @@ export const createAlertsRoutes = (alertsRepository: AlertRepository, authServic
     })
   );
 
+  router.get(
+    "/:id/export",
+    asyncHandler(async (request, response) => {
+      const alertId = Array.isArray(request.params.id) ? request.params.id[0] : request.params.id;
+      const alert = await alertsRepository.findById(alertId);
+      if (!alert) {
+        throw new HttpError(404, "Alert not found");
+      }
+
+      response.json({
+        project: "MCIPS SecureLens",
+        generatedAt: new Date().toISOString(),
+        incidentId: alert.incidentId,
+        incidentType: alert.incidentType,
+        title: alert.title,
+        summary: alert.incidentSummary,
+        tenantId: alert.tenantId,
+        severity: alert.severity,
+        risk: alert.risk,
+        explainableRisk: alert.explainableRisk,
+        correlatedSignals: alert.correlatedSignals,
+        recommendedActions: alert.recommendedActions,
+        detection: {
+          eventId: alert.eventId,
+          eventType: alert.eventType,
+          datasetFamily: alert.datasetFamily,
+          label: alert.label,
+          confidence: alert.confidence,
+          modelUsed: alert.modelUsed,
+          fallbackUsed: alert.fallbackUsed
+        },
+        privacy: {
+          sanitizedPreview: alert.sanitizedPreview,
+          piiDetected: alert.piiDetected,
+          detectedBank: alert.detectedBank,
+          note: "Raw sensitive content is excluded from the export artifact by design."
+        },
+        payloadSummary: alert.payloadSummary
+      });
+    })
+  );
+
   return router;
 };

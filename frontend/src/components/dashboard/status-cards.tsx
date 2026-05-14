@@ -5,28 +5,28 @@ import type { StatsSummary } from "../../types/stats";
 export const StatusCards = ({ summary }: { summary: StatsSummary | null }) => {
   const cards = [
     {
-      label: "Total Alerts",
+      label: "Total Signals",
       value: summary?.totalAlerts ?? 0,
-      detail: "Unified cross-family detections",
+      detail: "Unified detections entering the SecureLens pipeline",
       trend: "Live telemetry"
     },
     {
-      label: "High Risk",
-      value: summary?.highRiskAlerts ?? 0,
-      detail: "Priority incidents requiring triage",
-      trend: "Critical queue"
+      label: "Correlated Incidents",
+      value: summary?.correlatedIncidentsCount ?? 0,
+      detail: "Signals linked into higher-confidence compromise stories",
+      trend: "Correlation engine"
     },
     {
-      label: "Medium Risk",
-      value: summary?.mediumRiskAlerts ?? 0,
-      detail: "Needs analyst review and context",
-      trend: "Watch closely"
+      label: "High-Risk Queue",
+      value: summary?.highRiskAlerts ?? 0,
+      detail: "Incidents demanding fast analyst attention or immediate action",
+      trend: "Priority focus"
     },
     {
       label: "Average Confidence",
       value: summary ? `${Math.round(summary.averageConfidence * 100)}%` : "0%",
-      detail: "Model certainty across recent alerts",
-      trend: "Signal quality"
+      detail: "Hybrid detector certainty across the current incident stream",
+      trend: "Explainable scoring"
     }
   ];
 

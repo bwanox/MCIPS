@@ -3,6 +3,13 @@ import mongoose, { Schema } from "mongoose";
 const alertSchema = new Schema(
   {
     id: { type: String, required: true, unique: true },
+    incidentId: { type: String, required: true, index: true },
+    incidentType: { type: String, required: true },
+    correlationDetected: { type: Boolean, required: true },
+    incidentSummary: { type: String, required: true },
+    recommendedActions: [{ type: String, required: true }],
+    correlatedSignals: [{ type: Schema.Types.Mixed, required: true }],
+    explainableRisk: { type: Schema.Types.Mixed, required: true },
     eventId: { type: String, required: true, index: true },
     tenantId: { type: String, required: true, index: true },
     eventType: { type: String, required: true },

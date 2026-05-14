@@ -103,10 +103,10 @@ export const ManualEventForm = ({ onSubmit }: { onSubmit: (payload: EventSubmiss
     <section className="panel">
       <div className="panel-header">
         <div>
-          <h2>Manual Submission</h2>
-          <p className="panel-subtext">Craft analyst-driven test events without exposing unsanitized content in the UI.</p>
+          <h2>Manual Scenario Trigger</h2>
+          <p className="panel-subtext">Craft competition-ready test signals without exposing unsanitized content in the UI.</p>
         </div>
-        <span className="badge">Open ingest API</span>
+        <span className="badge">Demo Lab</span>
       </div>
       <form
         className="manual-form form-grid"
@@ -135,7 +135,7 @@ export const ManualEventForm = ({ onSubmit }: { onSubmit: (payload: EventSubmiss
           </select>
         </label>
         <p className="form-note full-span">
-          The backend will normalize the envelope, sanitize sensitive fields, and route dataset events through local scoring or AI as needed.
+          The backend will normalize the envelope, sanitize sensitive fields, correlate related signals, and route dataset events through local scoring or AI as needed.
         </p>
         {payload.eventType === "sms.message.received" ? (
           <label className="full-span">
