@@ -18,12 +18,22 @@ export type DatasetFamily =
   | "email_message"
   | "text_message";
 
+export type SourceFamily = "email" | "messaging" | "login" | "system";
+
 export interface CyberEventEnvelope {
   eventId: string;
   eventType: CyberEventType;
   tenantId: string;
   source: CyberEventSource;
+  sourceFamily: SourceFamily;
+  sourceAdapter: string;
+  sourceRef: string;
+  eventHash: string;
+  occurredAt: string;
   eventTimestampUtc: string;
+  agentHints?: string[];
+  localRiskSignals?: string[];
+  collectorConfidence?: number;
   payload: Record<string, unknown>;
 }
 
@@ -47,6 +57,22 @@ export type IncomingCyberEvent = Partial<CyberEventEnvelope> &
     event_type: CyberEventType;
     tenant_id: string;
     event_timestamp_utc: string;
+    sourceFamily: SourceFamily;
+    sourceAdapter: string;
+    sourceRef: string;
+    eventHash: string;
+    occurredAt: string;
+    agentHints: string[];
+    localRiskSignals: string[];
+    collectorConfidence: number;
+    source_family: SourceFamily;
+    source_adapter: string;
+    source_ref: string;
+    event_hash: string;
+    occurred_at: string;
+    agent_hints: string[];
+    local_risk_signals: string[];
+    collector_confidence: number;
   }> & {
     payload?: Record<string, unknown>;
     [key: string]: unknown;

@@ -1,9 +1,11 @@
 from src.application.services.anomaly_detection_service import AnomalyDetectionService
 from src.application.services.hybrid_ai_service import HybridAIService
+from src.application.services.reasoning_service import ReasoningService
 from src.application.services.threat_classifier_service import ThreatClassifierService
 from src.application.use_cases.detect_anomaly import DetectAnomalyUseCase
 from src.application.use_cases.run_inference import RunInferenceUseCase
 from src.infrastructure.config.settings import get_settings
+from src.infrastructure.llm.local_model_client import LocalModelClient
 from src.infrastructure.llm.openrouter_client import OpenRouterClient
 from src.infrastructure.llm.qwen_gateway import QwenGateway
 from src.infrastructure.repositories.inference_log_repository import InferenceLogRepository
@@ -27,6 +29,13 @@ def get_hybrid_ai_service() -> HybridAIService:
         settings=settings,
         llm_gateway=llm_gateway,
     )
+
+
+def get_reasoning_service() -> ReasoningService:
+    settings = get_settings()
+    local_client = LocalModelClient(settings) if settings.local_llm_base_url and settings.local_llm_model else None
+    cloud_client = OpenRouterClient(settings) if settings.openrouter_api_key else None
+    return ReasoningService(settings=settings, local_client=local_client, cloud_client=cloud_client)
 
 
 def get_run_inference_use_case() -> RunInferenceUseCase:

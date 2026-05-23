@@ -7,7 +7,7 @@ export const RecentAlertsTable = ({ alerts }: { alerts: Alert[] }) => (
     <div className="panel-header">
       <div>
         <h2>Recent Incident Queue</h2>
-        <p className="panel-subtext">Fast triage table showing incident type, score, correlation status, and privacy-safe evidence.</p>
+        <p className="panel-subtext">Fast triage table for the polished phishing SMS to suspicious login walkthrough.</p>
       </div>
       <span className="badge">Sanitized only</span>
     </div>

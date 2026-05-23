@@ -14,6 +14,7 @@ const bootstrap = async (): Promise<void> => {
   io.emit("system:status", {
     backend: "online",
     ai: env.aiServiceUrl,
+    agent: env.agentApiUrl,
     database: services.databaseState.mode,
     simulation: services.simulationService.getStatus()
   });

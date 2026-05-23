@@ -132,6 +132,19 @@ export const alertEngine = (
     explanation: inference.explanation,
     features: inference.features,
     source: payload.source,
+    sourceFamily: payload.sourceFamily,
+    sourceAdapter: payload.sourceAdapter,
+    sourceRef: payload.sourceRef,
+    eventHash: payload.eventHash,
+    occurredAt: payload.occurredAt,
+    agentMetadata:
+      payload.agentHints || payload.localRiskSignals || typeof payload.collectorConfidence === "number"
+        ? {
+            agentHints: payload.agentHints ?? [],
+            localRiskSignals: payload.localRiskSignals ?? [],
+            collectorConfidence: payload.collectorConfidence
+          }
+        : undefined,
     sanitizedPreview: sanitized.sanitizedPreview,
     contentLength: sanitized.contentLength,
     piiDetected: sanitized.piiDetected,

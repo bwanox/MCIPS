@@ -1,135 +1,102 @@
+import { createHash } from "node:crypto";
+
 import type { AppSocketServer } from "../../../../shared/config/socket.js";
 import type { AlertRecord, EventSource } from "../../../../shared/types/platform.js";
 import type { IngestionPipelineService } from "../../../events/application/services/ingestion-pipeline.service.js";
-import type { CyberEventEnvelope } from "../../../../types/cyberEvent.js";
+import type { CyberEventEnvelope, SourceFamily } from "../../../../types/cyberEvent.js";
 
-interface SimulationStatus {
+export interface SimulationStatus {
   running: boolean;
   intervalMs: number;
+  scenario: DemoScenarioName;
+  lastRunAt?: string;
   lastAlertAt?: string;
 }
 
-const demoEvents: CyberEventEnvelope[] = [
-  {
+export interface ScenarioRunResult {
+  scenario: DemoScenarioName;
+  alerts: AlertRecord[];
+  incidentId?: string;
+  completedAt: string;
+}
+
+export type DemoScenarioName = "phishing-login";
+
+const eventFamilyByType: Record<CyberEventEnvelope["eventType"], SourceFamily> = {
+  "email.message.received": "email",
+  "phishing.email.detected": "email",
+  "sms.message.received": "messaging",
+  "text.message.received": "messaging",
+  "auth.login.attempt": "login",
+  "log.anomaly.detected": "system",
+  "net.intrusion.suspected": "system"
+};
+
+const withSimulationMetadata = (event: Omit<CyberEventEnvelope, "sourceFamily" | "sourceAdapter" | "sourceRef" | "eventHash" | "occurredAt">): CyberEventEnvelope => {
+  const sourceFamily = eventFamilyByType[event.eventType];
+  const sourceAdapter = `simulation-${sourceFamily}`;
+  const sourceRef = event.eventId;
+  const occurredAt = event.eventTimestampUtc;
+
+  return {
+    ...event,
+    sourceFamily,
+    sourceAdapter,
+    sourceRef,
+    eventHash: createHash("sha256")
+      .update(JSON.stringify({ eventType: event.eventType, tenantId: event.tenantId, sourceAdapter, sourceRef, payload: event.payload }))
+      .digest("hex"),
+    occurredAt
+  };
+};
+
+const phishingSmsTemplate = withSimulationMetadata({
     eventId: "sim-sms-phishing",
     eventType: "sms.message.received",
     tenantId: "tenant-demo",
-    eventTimestampUtc: new Date().toISOString(),
+    eventTimestampUtc: "2025-01-15T14:23:44.998Z",
     source: "simulation",
     payload: {
-      content: "Votre compte CIH est bloque. Verifiez votre OTP 492911 sur https://cih-verification.example maintenant.",
-      sender: "unknown"
+      content: "Votre compte CIH est bloque. Confirmez votre OTP 492911 sur https://cih-verification.example maintenant.",
+      sender: "CIH-urgent"
     }
-  },
-  {
+  });
+
+const suspiciousLoginTemplate = withSimulationMetadata({
     eventId: "sim-login",
     eventType: "auth.login.attempt",
     tenantId: "tenant-demo",
-    eventTimestampUtc: new Date().toISOString(),
+    eventTimestampUtc: "2025-01-15T14:25:14.998Z",
     source: "simulation",
     payload: {
-      content: "Suspicious login attempt after phishing lure",
-      ip_address: "192.0.2.44",
-      country: "unknown",
-      device: "unknown device",
+      content: "Suspicious login attempt detected after CIH phishing lure",
+      ip_address: "197.230.45.19",
+      country: "MA-unknown",
+      device: "new Android device",
       user_agent: "UnknownBot/1.0"
     }
-  },
-  {
-    eventId: "sim-network-suspicious",
-    eventType: "net.intrusion.suspected",
-    tenantId: "tenant-demo",
-    eventTimestampUtc: new Date().toISOString(),
-    source: "simulation",
-    payload: {
-      protocol_type: "tcp",
-      service: "http",
-      flag: "SF",
-      class: "neptune",
-      difficulty_level: 15,
-      src_bytes: 491,
-      dst_bytes: 0,
-      num_failed_logins: 5,
-      root_shell: 1,
-      num_compromised: 1,
-      serror_rate: 0.8,
-      rerror_rate: 0.1
-    }
-  },
-  {
-    eventId: "sim-sms-safe",
-    eventType: "sms.message.received",
-    tenantId: "tenant-demo",
-    eventTimestampUtc: new Date().toISOString(),
-    source: "simulation",
-    payload: {
-      content: "Votre rendez-vous administratif est confirme pour demain a 09:00.",
-      sender: "institution-service"
-    }
-  },
-  {
-    eventId: "sim-phishing-email",
-    eventType: "phishing.email.detected",
-    tenantId: "tenant-demo",
-    eventTimestampUtc: new Date().toISOString(),
-    source: "simulation",
-    payload: {
-      label: "Phishing Email",
-      label_binary: 1,
-      char_count: 1842,
-      word_count: 312,
-      url_count: 3,
-      has_html: true,
-      ml_score_phishing: 0.96,
-      top_tokens: ["verify", "account", "campus"]
-    }
-  },
-  {
-    eventId: "sim-log-anomaly",
-    eventType: "log.anomaly.detected",
-    tenantId: "tenant-demo",
-    eventTimestampUtc: new Date().toISOString(),
-    source: "simulation",
-    payload: {
-      timestamp: new Date().toISOString(),
-      log_level: "ERROR",
-      component: "auth-service",
-      event_id: "EVT-4421",
-      message: "Failed login attempt threshold exceeded for session ABC123XYZ",
-      anomaly_score: 0.87,
-      is_anomaly: 1
-    }
-  },
-  {
-    eventId: "sim-network-safe",
-    eventType: "net.intrusion.suspected",
-    tenantId: "tenant-demo",
-    eventTimestampUtc: new Date().toISOString(),
-    source: "simulation",
-    payload: {
-      protocol_type: "tcp",
-      service: "http",
-      flag: "SF",
-      class: "normal",
-      difficulty_level: 5,
-      src_bytes: 128,
-      dst_bytes: 256,
-      num_failed_logins: 0,
-      root_shell: 0,
-      num_compromised: 0,
-      serror_rate: 0,
-      rerror_rate: 0
-    }
-  }
-];
+  });
+
+const cloneScenarioEvent = (
+  template: CyberEventEnvelope,
+  runId: string,
+  occurredAt: string,
+  eventIdSuffix: string
+): CyberEventEnvelope =>
+  withSimulationMetadata({
+    ...template,
+    eventId: `${template.eventId}-${runId}-${eventIdSuffix}`,
+    eventTimestampUtc: occurredAt,
+    payload: { ...template.payload }
+  });
 
 export class SimulationService {
   private timer?: NodeJS.Timeout;
   private readonly status: SimulationStatus = {
     running: false,
-    intervalMs: 5_000
+    intervalMs: 5_000,
+    scenario: "phishing-login"
   };
-  private nextIndex = 0;
 
   constructor(private readonly pipeline: IngestionPipelineService, private readonly io?: AppSocketServer) {}
 
@@ -138,15 +105,51 @@ export class SimulationService {
   }
 
   async runOnce(): Promise<AlertRecord> {
-    const event = demoEvents[this.nextIndex % demoEvents.length];
-    this.nextIndex += 1;
-    const alert = await this.pipeline.ingest(event);
-    this.status.lastAlertAt = alert.timestamp;
+    const result = await this.runScenario("phishing-login");
+    const alert = result.alerts[result.alerts.length - 1]!;
     this.io?.emit("simulation:status", this.getStatus());
     this.io?.emit("system:status", {
       simulation: this.getStatus()
     });
     return alert;
+  }
+
+  async runScenario(scenario: DemoScenarioName = "phishing-login"): Promise<ScenarioRunResult> {
+    const runId = `${Date.now()}`;
+    const baseTime = new Date();
+    const firstTime = new Date(baseTime.getTime()).toISOString();
+    const secondTime = new Date(baseTime.getTime() + 2 * 60 * 1000).toISOString();
+
+    const events =
+      scenario === "phishing-login"
+        ? [
+            cloneScenarioEvent(phishingSmsTemplate, runId, firstTime, "sms"),
+            cloneScenarioEvent(suspiciousLoginTemplate, runId, secondTime, "login")
+          ]
+        : [];
+
+    const alerts: AlertRecord[] = [];
+
+    for (const event of events) {
+      alerts.push(await this.pipeline.ingest(event));
+    }
+
+    const completedAt = new Date().toISOString();
+    this.status.lastRunAt = completedAt;
+    this.status.lastAlertAt = alerts[alerts.length - 1]?.timestamp;
+    this.status.scenario = scenario;
+
+    this.io?.emit("simulation:status", this.getStatus());
+    this.io?.emit("system:status", {
+      simulation: this.getStatus()
+    });
+
+    return {
+      scenario,
+      alerts,
+      incidentId: alerts[alerts.length - 1]?.incidentId,
+      completedAt
+    };
   }
 
   start(intervalMs = 5_000): SimulationStatus {
@@ -157,7 +160,7 @@ export class SimulationService {
     this.status.running = true;
     this.status.intervalMs = intervalMs;
     this.timer = setInterval(() => {
-      void this.runOnce();
+      void this.runScenario(this.status.scenario);
     }, intervalMs);
     this.io?.emit("simulation:status", this.getStatus());
     this.io?.emit("system:status", {

@@ -153,7 +153,8 @@ describe("MCIPS backend", () => {
     expect(response.body.label).toBe("network_intrusion");
     expect(response.body.datasetFamily).toBe("network_intrusion");
     expect(response.body.modelUsed).toBe("dataset_scoring_v1");
-    expect(vi.mocked(axios.default.post)).not.toHaveBeenCalled();
+    expect(vi.mocked(axios.default.post)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(axios.default.post).mock.calls[0]?.[0]).toContain("/incidents/reason");
   });
 
   it("creates a HIGH log anomaly alert from structured data", async () => {
@@ -248,20 +249,44 @@ describe("MCIPS backend", () => {
     expect(response.status).toBe(401);
   });
 
-  it("aggregates stats and simulation once", async () => {
+  it("aggregates stats after running the named phishing-login scenario", async () => {
     process.env.ADMIN_PASSWORD_HASH = await bcrypt.hash("admin123", 10);
     const axios = await import("axios");
-    vi.mocked(axios.default.post).mockResolvedValue({
-      data: {
-        label: "suspicious_login",
-        confidence: 0.8,
-        risk: "HIGH",
-        explanation: "New device and velocity mismatch",
-        features: ["new_device", "geo_velocity"],
-        model_used: "hybrid_ai_v1",
-        fallback_used: false
-      }
-    });
+    vi.mocked(axios.default.post)
+      .mockResolvedValueOnce({
+        data: {
+          label: "phishing",
+          confidence: 0.93,
+          risk: "HIGH",
+          explanation: "Credential lure with urgent bank language",
+          features: ["otp_request", "credential_request"],
+          model_used: "hybrid_ai_v1",
+          fallback_used: false
+        }
+      })
+      .mockResolvedValueOnce({
+        data: {
+          summary:
+            "A Morocco-relevant phishing SMS impersonating a bank was followed by a suspicious login attempt from a new access context, escalating the incident to HIGH risk. Sensitive content was sanitized before storage and analysis."
+        }
+      })
+      .mockResolvedValueOnce({
+        data: {
+          label: "suspicious_login",
+          confidence: 0.82,
+          risk: "MEDIUM",
+          explanation: "New device and unknown access context",
+          features: ["new_device", "ip_anomaly"],
+          model_used: "hybrid_ai_v1",
+          fallback_used: false
+        }
+      })
+      .mockResolvedValueOnce({
+        data: {
+          summary:
+            "A Morocco-relevant phishing SMS impersonating a bank was followed by a suspicious login attempt from a new access context, escalating the incident to HIGH risk. Sensitive content was sanitized before storage and analysis."
+        }
+      });
 
     const { createApp } = await import("../app.js");
     const { app } = await createApp();
@@ -273,7 +298,7 @@ describe("MCIPS backend", () => {
     const token = login.body.token;
 
     const onceResponse = await request(app)
-      .post("/api/simulation/once")
+      .post("/api/simulation/scenarios/phishing-login")
       .set("Authorization", `Bearer ${token}`);
 
     const summaryResponse = await request(app)
@@ -281,26 +306,29 @@ describe("MCIPS backend", () => {
       .set("Authorization", `Bearer ${token}`);
 
     expect(onceResponse.status).toBe(201);
+    expect(onceResponse.body.scenario).toBe("phishing-login");
+    expect(onceResponse.body.alerts).toHaveLength(2);
     expect(summaryResponse.status).toBe(200);
     expect(summaryResponse.body.totalAlerts).toBeGreaterThan(0);
     expect(Array.isArray(summaryResponse.body.datasetFamilyDistribution)).toBe(true);
     expect(Array.isArray(summaryResponse.body.recentAlerts)).toBe(true);
   });
 
-  it("can simulate all supported event families across multiple runs", async () => {
+  it("replays the phishing-login scenario consistently without creating duplicate alerts inside a single run", async () => {
     process.env.ADMIN_PASSWORD_HASH = await bcrypt.hash("admin123", 10);
     const axios = await import("axios");
-    vi.mocked(axios.default.post).mockResolvedValue({
-      data: {
-        label: "suspicious_login",
-        confidence: 0.8,
-        risk: "HIGH",
-        explanation: "New device and velocity mismatch",
-        features: ["new_device", "geo_velocity"],
-        model_used: "hybrid_ai_v1",
-        fallback_used: false
-      }
-    });
+    vi.mocked(axios.default.post)
+      .mockResolvedValue({
+        data: {
+          label: "phishing",
+          confidence: 0.92,
+          risk: "HIGH",
+          explanation: "Credential lure with urgent bank language",
+          features: ["otp_request", "credential_request"],
+          model_used: "hybrid_ai_v1",
+          fallback_used: false
+        }
+      });
 
     const { createApp } = await import("../app.js");
     const { app } = await createApp();
@@ -310,20 +338,21 @@ describe("MCIPS backend", () => {
     });
     const token = login.body.token;
 
-    for (let index = 0; index < 7; index += 1) {
-      await request(app).post("/api/simulation/once").set("Authorization", `Bearer ${token}`);
-    }
+    const firstRun = await request(app).post("/api/simulation/scenarios/phishing-login").set("Authorization", `Bearer ${token}`);
+    const secondRun = await request(app).post("/api/simulation/scenarios/phishing-login").set("Authorization", `Bearer ${token}`);
 
     const alertsResponse = await request(app)
       .get("/api/alerts")
       .set("Authorization", `Bearer ${token}`);
 
-    const families = new Set(alertsResponse.body.map((alert: { datasetFamily: string }) => alert.datasetFamily));
-    expect(families.has("sms_threat")).toBe(true);
-    expect(families.has("auth_security")).toBe(true);
-    expect(families.has("network_intrusion")).toBe(true);
-    expect(families.has("logging_monitoring")).toBe(true);
-    expect(families.has("phishing_email")).toBe(true);
+    expect(firstRun.status).toBe(201);
+    expect(secondRun.status).toBe(201);
+    expect(firstRun.body.alerts).toHaveLength(2);
+    expect(secondRun.body.alerts).toHaveLength(2);
+    expect(alertsResponse.body).toHaveLength(4);
+    expect(alertsResponse.body.every((alert: { datasetFamily: string }) => ["sms_threat", "auth_security"].includes(alert.datasetFamily))).toBe(
+      true
+    );
   });
 
   it("correlates phishing and suspicious login into a higher-severity incident and exports it", async () => {
@@ -400,5 +429,150 @@ describe("MCIPS backend", () => {
     expect(exportResponse.body.incidentId).toBeTruthy();
     expect(Array.isArray(exportResponse.body.recommendedActions)).toBe(true);
     expect(JSON.stringify(exportResponse.body)).not.toContain("Votre compte CIH est bloque");
+    expect(exportResponse.body.summary).toContain("Morocco-relevant phishing SMS");
+  });
+
+  it("exposes incident and copilot endpoints with approval-ready actions", async () => {
+    process.env.ADMIN_PASSWORD_HASH = await bcrypt.hash("admin123", 10);
+    const axios = await import("axios");
+    vi.mocked(axios.default.post)
+      .mockResolvedValueOnce({
+        data: {
+          label: "phishing",
+          confidence: 0.92,
+          risk: "HIGH",
+          explanation: "Credential lure with urgent bank language",
+          features: ["otp_request", "credential_request"],
+          model_used: "hybrid_ai_v1",
+          fallback_used: false
+        }
+      })
+      .mockResolvedValueOnce({
+        data: {
+          summary:
+            "A Morocco-relevant phishing SMS impersonating a bank was followed by a suspicious login attempt from a new access context, escalating the incident to HIGH risk. Sensitive content was sanitized before storage and analysis."
+        }
+      })
+      .mockResolvedValueOnce({
+        data: {
+          label: "suspicious_login",
+          confidence: 0.82,
+          risk: "MEDIUM",
+          explanation: "New device and unknown access context",
+          features: ["new_device", "ip_anomaly"],
+          model_used: "hybrid_ai_v1",
+          fallback_used: false
+        }
+      })
+      .mockResolvedValueOnce({
+        data: {
+          summary:
+            "A Morocco-relevant phishing SMS impersonating a bank was followed by a suspicious login attempt from a new access context, escalating the incident to HIGH risk. Sensitive content was sanitized before storage and analysis."
+        }
+      })
+      .mockResolvedValueOnce({
+        data: {
+          answer: "Start by reviewing and approving the password reset action."
+        }
+      });
+
+    const { createApp } = await import("../app.js");
+    const { app } = await createApp();
+
+    const ingestResponse = await request(app).post("/api/events").send({
+      event_type: "sms.message.received",
+      tenant_id: "tenant-incidents",
+      source: "manual",
+      payload: {
+        content: "Votre compte CIH est bloque. Confirmez OTP 492911 sur https://cih-secure.example"
+      }
+    });
+
+    const loginResponse = await request(app).post("/api/events").send({
+      event_type: "auth.login.attempt",
+      tenant_id: "tenant-incidents",
+      source: "manual",
+      payload: {
+        content: "Suspicious login attempt",
+        ip_address: "192.0.2.44",
+        country: "unknown",
+        device: "unknown device",
+        user_agent: "UnknownBot/1.0"
+      }
+    });
+
+    const login = await request(app).post("/api/auth/login").send({
+      email: "admin@mcips.local",
+      password: "admin123"
+    });
+    const token = login.body.token;
+
+    const incidentsResponse = await request(app)
+      .get("/api/incidents")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(incidentsResponse.status).toBe(200);
+    expect(incidentsResponse.body[0].status).toBe("awaiting_approval");
+    expect(Array.isArray(incidentsResponse.body[0].actions)).toBe(true);
+    expect(incidentsResponse.body[0].actions.filter((action: { requiresApproval: boolean }) => action.requiresApproval)).toHaveLength(1);
+
+    const questionResponse = await request(app)
+      .post("/api/copilot/query")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        incidentId: incidentsResponse.body[0].id,
+        question: "What should we do first?"
+      });
+
+    expect(ingestResponse.status).toBe(201);
+    expect(loginResponse.status).toBe(201);
+    expect(questionResponse.status).toBe(200);
+    expect(questionResponse.body.answer.toLowerCase()).toContain("password reset");
+  });
+
+  it("deduplicates repeated source events by source adapter and source reference", async () => {
+    process.env.ADMIN_PASSWORD_HASH = await bcrypt.hash("admin123", 10);
+    const axios = await import("axios");
+    vi.mocked(axios.default.post)
+      .mockResolvedValueOnce({
+        data: {
+          label: "phishing",
+          confidence: 0.9,
+          risk: "HIGH",
+          explanation: "Duplicate phishing signal",
+          features: ["credential_request"],
+          model_used: "hybrid_ai_v1",
+          fallback_used: false
+        }
+      })
+      .mockResolvedValueOnce({
+        data: {
+          summary: "Duplicate phishing signal kept as one sanitized incident."
+        }
+      });
+
+    const { createApp } = await import("../app.js");
+    const { app } = await createApp();
+
+    const payload = {
+      event_type: "email.message.received",
+      tenant_id: "tenant-dedupe",
+      source: "external",
+      source_adapter: "local-mail",
+      source_ref: "message-42",
+      event_hash: "hash-message-42",
+      occurred_at: "2025-01-15T14:23:44.998Z",
+      payload: {
+        content: "Please verify your account immediately."
+      }
+    };
+
+    const first = await request(app).post("/api/events").send(payload);
+    const second = await request(app).post("/api/events").send(payload);
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(second.body.id).toBe(first.body.id);
+    expect(vi.mocked(axios.default.post)).toHaveBeenCalledTimes(2);
   });
 });

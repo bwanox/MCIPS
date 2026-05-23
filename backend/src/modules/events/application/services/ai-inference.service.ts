@@ -1,7 +1,13 @@
 import axios from "axios";
 
 import { env } from "../../../../shared/config/env.js";
-import type { AiInferenceResult, EventPayload, SanitizedEventResult } from "../../../../shared/types/platform.js";
+import type {
+  AiGeneratedTextResult,
+  AiInferenceResult,
+  EventPayload,
+  IncidentReasoningResult,
+  SanitizedEventResult
+} from "../../../../shared/types/platform.js";
 
 type AiRequestPayload = {
   type: "SMS" | "EMAIL" | "TEXT" | "LOGIN_ATTEMPT";
@@ -127,6 +133,97 @@ export class AiInferenceService {
         modelUsed: "backend_fallback",
         fallbackUsed: true
       };
+    }
+  }
+
+  async summarizeIncident(input: {
+    incidentId: string;
+    tenantId: string;
+    title: string;
+    summary: string;
+    recommendedActions: string[];
+    signals: Array<{ eventId: string; eventType: string; title: string; label: string; risk: string }>;
+  }): Promise<AiGeneratedTextResult | null> {
+    try {
+      const response = await axios.post(
+        resolveAiAnalyzeUrl(env.aiServiceUrl).replace("/inference/analyze", "/incidents/summarize"),
+        input,
+        { timeout: 10_000 }
+      );
+
+      return typeof response.data.summary === "string"
+        ? {
+            content: response.data.summary,
+            modelUsed: response.data.model_used ?? "ai_service",
+            fallbackUsed: Boolean(response.data.fallback_used)
+          }
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async reasonIncident(input: {
+    incidentId: string;
+    tenantId: string;
+    title: string;
+    summary: string;
+    recommendedActions: string[];
+    signals: Array<{ eventId: string; eventType: string; title: string; label: string; risk: string }>;
+  }): Promise<IncidentReasoningResult | null> {
+    try {
+      const response = await axios.post(
+        resolveAiAnalyzeUrl(env.aiServiceUrl).replace("/inference/analyze", "/incidents/reason"),
+        input,
+        { timeout: 10_000 }
+      );
+
+      if (typeof response.data.summary !== "string") {
+        return null;
+      }
+
+      return {
+        summary: response.data.summary,
+        recommendedActions: Array.isArray(response.data.recommended_actions)
+          ? response.data.recommended_actions.filter((value: unknown): value is string => typeof value === "string")
+          : input.recommendedActions,
+        approvalRequired: Boolean(response.data.approval_required),
+        approvalReason:
+          typeof response.data.approval_reason === "string"
+            ? response.data.approval_reason
+            : "Operator approval required for account or access changes.",
+        modelUsed: response.data.model_used ?? "ai_service",
+        fallbackUsed: Boolean(response.data.fallback_used)
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  async answerCopilotQuestion(input: {
+    incidentId: string;
+    summary: string;
+    sourceFamilies: string[];
+    recommendedActions: string[];
+    timeline: Array<{ title: string; occurredAt: string; sourceFamily: string; severity: string }>;
+    question: string;
+  }): Promise<AiGeneratedTextResult | null> {
+    try {
+      const response = await axios.post(
+        resolveAiAnalyzeUrl(env.aiServiceUrl).replace("/inference/analyze", "/copilot/answer"),
+        input,
+        { timeout: 10_000 }
+      );
+
+      return typeof response.data.answer === "string"
+        ? {
+            content: response.data.answer,
+            modelUsed: response.data.model_used ?? "ai_service",
+            fallbackUsed: Boolean(response.data.fallback_used)
+          }
+        : null;
+    } catch {
+      return null;
     }
   }
 }

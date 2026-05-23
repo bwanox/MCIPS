@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { z } from "zod";
 
 import type { AuthService } from "../../../auth/application/services/auth.service.js";
 import type { SimulationService } from "../../application/services/simulation.service.js";
@@ -10,6 +11,9 @@ export const createSimulationRoutes = (
   authService: AuthService
 ): Router => {
   const router = Router();
+  const scenarioSchema = z.object({
+    scenario: z.literal("phishing-login").default("phishing-login")
+  });
 
   router.use(authMiddleware(authService));
 
@@ -38,6 +42,14 @@ export const createSimulationRoutes = (
     "/once",
     asyncHandler(async (_request, response) => {
       response.status(201).json(await simulationService.runOnce());
+    })
+  );
+
+  router.post(
+    "/scenarios/phishing-login",
+    asyncHandler(async (request, response) => {
+      const payload = scenarioSchema.parse(request.body ?? {});
+      response.status(201).json(await simulationService.runScenario(payload.scenario));
     })
   );
 

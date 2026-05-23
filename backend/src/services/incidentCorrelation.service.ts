@@ -139,6 +139,19 @@ const buildRecommendedActions = (
   correlatedSignals: CorrelatedSignal[],
   correlationDetected: boolean
 ): string[] => {
+  const phishingSmsToLogin =
+    event.eventType === "auth.login.attempt" && correlatedSignals.some((signal) => signal.datasetFamily === "sms_threat");
+
+  if (phishingSmsToLogin) {
+    return [
+      "Force a password reset and invalidate active sessions.",
+      "Block the sender, suspicious domain, or delivery channel.",
+      "Review recent login logs for additional suspicious access attempts.",
+      "Notify the targeted user or team about the correlated phishing and account-compromise risk.",
+      "Preserve the sanitized incident report for analyst review and escalation."
+    ];
+  }
+
   const actions = new Set<string>();
 
   if (
@@ -178,6 +191,14 @@ const buildIncidentSummary = (
   const sanitizedNote = sanitized.piiDetected
     ? "Sensitive content was sanitized before storage and analysis."
     : "No direct personal content needed masking in this signal.";
+
+  if (
+    correlatedSignals.length > 0 &&
+    event.eventType === "auth.login.attempt" &&
+    correlatedSignals.some((signal) => signal.datasetFamily === "sms_threat")
+  ) {
+    return `A Morocco-relevant phishing SMS impersonating a bank was followed by a suspicious login attempt from a new access context, escalating the incident to ${riskFromScore(explainableRisk.finalScore)} risk. ${sanitizedNote}`;
+  }
 
   if (correlatedSignals.length > 0 && event.eventType === "auth.login.attempt") {
     return `A phishing-like lure was followed by a suspicious login attempt for the same tenant, raising account-compromise risk to ${riskFromScore(explainableRisk.finalScore)}. ${sanitizedNote}`;

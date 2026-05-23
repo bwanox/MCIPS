@@ -26,6 +26,7 @@ The current competition build explicitly emphasizes:
 - incident correlation across message, login, and network signals
 - explainable risk scoring with visible contributing factors
 - privacy-by-design sanitization and safe evidence handling
+- one polished phishing SMS -> suspicious login demo story for competition walkthroughs
 
 ## Unified Event Architecture
 
@@ -225,6 +226,7 @@ Authenticated:
 - `POST /api/simulation/stop`
 - `GET /api/simulation/status`
 - `POST /api/simulation/once`
+- `POST /api/simulation/scenarios/phishing-login`
 
 ## WebSocket Events
 

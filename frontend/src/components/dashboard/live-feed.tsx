@@ -14,12 +14,12 @@ export const LiveFeed = ({ alerts }: { alerts: Alert[] }) => (
     <div className="panel-header">
       <div>
         <h2>Live Incident Feed</h2>
-        <p className="panel-subtext">Correlated, sanitized incident cards with explainable scoring and response actions.</p>
+        <p className="panel-subtext">Follow the phishing SMS to suspicious login story as it becomes one correlated, sanitized incident.</p>
       </div>
       <span className="badge">Privacy protected</span>
     </div>
     <div className="feed-list">
-      {alerts.length === 0 ? <p className="empty-state">No incidents yet. Trigger the demo scenario to populate the feed.</p> : null}
+      {alerts.length === 0 ? <p className="empty-state">No incidents yet. Run the Moroccan bank phishing scenario to populate the feed.</p> : null}
       {alerts.slice(0, 8).map((alert) => {
         const factorPreview = alert.explainableRisk.factors.slice(0, 3);
 

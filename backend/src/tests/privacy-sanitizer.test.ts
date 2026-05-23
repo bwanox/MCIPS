@@ -9,6 +9,11 @@ describe("privacySanitizer", () => {
       eventType: "sms.message.received",
       tenantId: "tenant-demo",
       source: "manual",
+      sourceFamily: "messaging",
+      sourceAdapter: "test-messaging",
+      sourceRef: "evt-1",
+      eventHash: "hash-evt-1",
+      occurredAt: "2025-01-15T14:23:44.998Z",
       eventTimestampUtc: "2025-01-15T14:23:44.998Z",
       payload: {
         content:

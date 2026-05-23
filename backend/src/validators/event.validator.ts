@@ -4,6 +4,7 @@ import { normalizeIncomingEvent, type isLegacyEventInput } from "../services/eve
 import type { CyberEventEnvelope } from "../types/cyberEvent.js";
 
 const sourceSchema = z.enum(["manual", "simulation", "dataset", "external"]);
+const sourceFamilySchema = z.enum(["email", "messaging", "login", "system"]);
 
 const numericField = z.number().finite();
 const optionalNumericField = z.number().finite().optional();
@@ -110,7 +111,15 @@ const normalizedEventSchema = z.discriminatedUnion("eventType", [
     eventType: z.literal("sms.message.received"),
     tenantId: z.string().trim().min(1),
     source: sourceSchema,
+    sourceFamily: sourceFamilySchema,
+    sourceAdapter: z.string().trim().min(1),
+    sourceRef: z.string().trim().min(1),
+    eventHash: z.string().trim().min(1),
+    occurredAt: z.string().datetime(),
     eventTimestampUtc: z.string().datetime(),
+    agentHints: z.array(z.string()).optional(),
+    localRiskSignals: z.array(z.string()).optional(),
+    collectorConfidence: z.number().min(0).max(1).optional(),
     payload: smsPayloadSchema
   }),
   z.object({
@@ -118,7 +127,15 @@ const normalizedEventSchema = z.discriminatedUnion("eventType", [
     eventType: z.literal("email.message.received"),
     tenantId: z.string().trim().min(1),
     source: sourceSchema,
+    sourceFamily: sourceFamilySchema,
+    sourceAdapter: z.string().trim().min(1),
+    sourceRef: z.string().trim().min(1),
+    eventHash: z.string().trim().min(1),
+    occurredAt: z.string().datetime(),
     eventTimestampUtc: z.string().datetime(),
+    agentHints: z.array(z.string()).optional(),
+    localRiskSignals: z.array(z.string()).optional(),
+    collectorConfidence: z.number().min(0).max(1).optional(),
     payload: emailMessagePayloadSchema
   }),
   z.object({
@@ -126,7 +143,15 @@ const normalizedEventSchema = z.discriminatedUnion("eventType", [
     eventType: z.literal("text.message.received"),
     tenantId: z.string().trim().min(1),
     source: sourceSchema,
+    sourceFamily: sourceFamilySchema,
+    sourceAdapter: z.string().trim().min(1),
+    sourceRef: z.string().trim().min(1),
+    eventHash: z.string().trim().min(1),
+    occurredAt: z.string().datetime(),
     eventTimestampUtc: z.string().datetime(),
+    agentHints: z.array(z.string()).optional(),
+    localRiskSignals: z.array(z.string()).optional(),
+    collectorConfidence: z.number().min(0).max(1).optional(),
     payload: contentPayloadSchema
   }),
   z.object({
@@ -134,7 +159,15 @@ const normalizedEventSchema = z.discriminatedUnion("eventType", [
     eventType: z.literal("auth.login.attempt"),
     tenantId: z.string().trim().min(1),
     source: sourceSchema,
+    sourceFamily: sourceFamilySchema,
+    sourceAdapter: z.string().trim().min(1),
+    sourceRef: z.string().trim().min(1),
+    eventHash: z.string().trim().min(1),
+    occurredAt: z.string().datetime(),
     eventTimestampUtc: z.string().datetime(),
+    agentHints: z.array(z.string()).optional(),
+    localRiskSignals: z.array(z.string()).optional(),
+    collectorConfidence: z.number().min(0).max(1).optional(),
     payload: loginPayloadSchema
   }),
   z.object({
@@ -142,7 +175,15 @@ const normalizedEventSchema = z.discriminatedUnion("eventType", [
     eventType: z.literal("log.anomaly.detected"),
     tenantId: z.string().trim().min(1),
     source: sourceSchema,
+    sourceFamily: sourceFamilySchema,
+    sourceAdapter: z.string().trim().min(1),
+    sourceRef: z.string().trim().min(1),
+    eventHash: z.string().trim().min(1),
+    occurredAt: z.string().datetime(),
     eventTimestampUtc: z.string().datetime(),
+    agentHints: z.array(z.string()).optional(),
+    localRiskSignals: z.array(z.string()).optional(),
+    collectorConfidence: z.number().min(0).max(1).optional(),
     payload: logAnomalyPayloadSchema
   }),
   z.object({
@@ -150,7 +191,15 @@ const normalizedEventSchema = z.discriminatedUnion("eventType", [
     eventType: z.literal("phishing.email.detected"),
     tenantId: z.string().trim().min(1),
     source: sourceSchema,
+    sourceFamily: sourceFamilySchema,
+    sourceAdapter: z.string().trim().min(1),
+    sourceRef: z.string().trim().min(1),
+    eventHash: z.string().trim().min(1),
+    occurredAt: z.string().datetime(),
     eventTimestampUtc: z.string().datetime(),
+    agentHints: z.array(z.string()).optional(),
+    localRiskSignals: z.array(z.string()).optional(),
+    collectorConfidence: z.number().min(0).max(1).optional(),
     payload: phishingPayloadSchema
   }),
   z.object({
@@ -158,7 +207,15 @@ const normalizedEventSchema = z.discriminatedUnion("eventType", [
     eventType: z.literal("net.intrusion.suspected"),
     tenantId: z.string().trim().min(1),
     source: sourceSchema,
+    sourceFamily: sourceFamilySchema,
+    sourceAdapter: z.string().trim().min(1),
+    sourceRef: z.string().trim().min(1),
+    eventHash: z.string().trim().min(1),
+    occurredAt: z.string().datetime(),
     eventTimestampUtc: z.string().datetime(),
+    agentHints: z.array(z.string()).optional(),
+    localRiskSignals: z.array(z.string()).optional(),
+    collectorConfidence: z.number().min(0).max(1).optional(),
     payload: networkPayloadSchema
   })
 ]);

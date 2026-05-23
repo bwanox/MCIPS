@@ -11,6 +11,8 @@ import { parseIncomingCyberEvent, parseIncomingCyberEventBatch } from "../valida
 import { StatsService } from "../../../stats/application/services/stats.service.js";
 import { isStructuredDatasetEvent, scoreDatasetEvent } from "../../../../services/datasetScoring.service.js";
 import { enrichAlertWithIncidentCorrelation } from "../../../../services/incidentCorrelation.service.js";
+import type { IncidentService } from "../../../incidents/application/services/incident.service.js";
+import { env } from "../../../../shared/config/env.js";
 
 export class IngestionPipelineService {
   constructor(
@@ -18,11 +20,28 @@ export class IngestionPipelineService {
     private readonly eventLogsRepository: EventLogRepository,
     private readonly statsService: StatsService,
     private readonly aiInferenceService: AiInferenceService,
+    private readonly incidentService: IncidentService,
     private readonly io?: AppSocketServer
   ) {}
 
   async ingest(rawInput: unknown): Promise<AlertRecord> {
     const event = parseIncomingCyberEvent(rawInput);
+    const duplicate = await this.eventLogsRepository.findDuplicate({
+      tenantId: event.tenantId,
+      sourceAdapter: event.sourceAdapter,
+      sourceRef: event.sourceRef,
+      eventHash: event.eventHash,
+      occurredAt: event.occurredAt,
+      dedupeWindowMs: env.copilotDedupeWindowMs
+    });
+
+    if (duplicate) {
+      const existingAlert = await this.alertsRepository.findById(duplicate.alertId);
+      if (existingAlert) {
+        return existingAlert;
+      }
+    }
+
     const sanitized = privacySanitizer(event);
     const priorAlerts = await this.alertsRepository.list();
     const inference =
@@ -55,12 +74,26 @@ export class IngestionPipelineService {
 
     const eventLog: EventLogRecord = {
       id: randomUUID(),
+      alertId: alert.id,
       incidentId: alert.incidentId,
       eventId: event.eventId,
       tenantId: event.tenantId,
       eventType: event.eventType,
       datasetFamily: alert.datasetFamily,
       source: event.source,
+      sourceFamily: event.sourceFamily,
+      sourceAdapter: event.sourceAdapter,
+      sourceRef: event.sourceRef,
+      eventHash: event.eventHash,
+      occurredAt: event.occurredAt,
+      agentMetadata:
+        event.agentHints || event.localRiskSignals || typeof event.collectorConfidence === "number"
+          ? {
+              agentHints: event.agentHints ?? [],
+              localRiskSignals: event.localRiskSignals ?? [],
+              collectorConfidence: event.collectorConfidence
+            }
+          : undefined,
       contentLength: sanitized.contentLength,
       label: inference!.label,
       risk: inference!.risk,
@@ -75,6 +108,7 @@ export class IngestionPipelineService {
 
     await this.alertsRepository.create(alert);
     await this.eventLogsRepository.create(eventLog);
+    await this.incidentService.syncFromAlert(alert, eventLog);
 
     const [summary] = await Promise.all([this.statsService.getSummary()]);
 

@@ -1,4 +1,4 @@
-import type { CyberEventType, EventSource } from "./event";
+import type { CyberEventType, EventSource, SourceFamily } from "./event";
 
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
 export type AlertSeverity = "critical" | "high" | "medium" | "low";
@@ -68,6 +68,11 @@ export interface Alert {
   explanation: string;
   features: string[];
   source: EventSource;
+  sourceFamily: SourceFamily;
+  sourceAdapter: string;
+  sourceRef: string;
+  eventHash: string;
+  occurredAt: string;
   sanitizedPreview: string;
   contentLength: number;
   piiDetected: boolean;

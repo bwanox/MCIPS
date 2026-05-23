@@ -1,6 +1,6 @@
 import { apiClient } from "../lib/api-client";
 import type { Alert } from "../types/alert";
-import type { SimulationStatus } from "../types/simulation";
+import type { ScenarioRunResult, SimulationStatus } from "../types/simulation";
 
 export const simulationService = {
   async start(): Promise<SimulationStatus> {
@@ -17,6 +17,12 @@ export const simulationService = {
   },
   async once(): Promise<Alert> {
     const response = await apiClient.post<Alert>("/api/simulation/once");
+    return response.data;
+  },
+  async runPhishingLoginScenario(): Promise<ScenarioRunResult> {
+    const response = await apiClient.post<ScenarioRunResult>("/api/simulation/scenarios/phishing-login", {
+      scenario: "phishing-login"
+    });
     return response.data;
   }
 };

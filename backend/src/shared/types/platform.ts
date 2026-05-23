@@ -1,4 +1,10 @@
-import type { CyberEventEnvelope, CyberEventSource, CyberEventType, DatasetFamily } from "../../types/cyberEvent.js";
+import type {
+  CyberEventEnvelope,
+  CyberEventSource,
+  CyberEventType,
+  DatasetFamily,
+  SourceFamily
+} from "../../types/cyberEvent.js";
 
 export type EventType = CyberEventType;
 export type EventSource = CyberEventSource;
@@ -59,6 +65,43 @@ export interface AiInferenceResult {
   fallbackUsed: boolean;
 }
 
+export interface AiGeneratedTextResult {
+  content: string;
+  modelUsed: string;
+  fallbackUsed: boolean;
+}
+
+export interface IncidentReasoningResult {
+  summary: string;
+  recommendedActions: string[];
+  approvalRequired: boolean;
+  approvalReason: string;
+  modelUsed: string;
+  fallbackUsed: boolean;
+}
+
+export interface IncidentAiProvenance {
+  summarySource: "local_model" | "cloud_model" | "deterministic_fallback" | "backend";
+  summaryModelUsed: string;
+  summaryFallbackUsed: boolean;
+  recommendedActionSource: "local_model" | "cloud_model" | "deterministic_fallback" | "backend";
+  recommendedActionModelUsed: string;
+  recommendedActionFallbackUsed: boolean;
+  approvalClassificationSource: "local_model" | "cloud_model" | "deterministic_fallback" | "backend";
+  approvalClassificationModelUsed: string;
+  approvalClassificationFallbackUsed: boolean;
+  approvalRequiredReason?: string;
+  lastCopilotAnswerSource?: "local_model" | "cloud_model" | "deterministic_fallback" | "backend";
+  lastCopilotAnswerModelUsed?: string;
+  lastCopilotAnswerFallbackUsed?: boolean;
+}
+
+export interface AgentAdvisoryMetadata {
+  agentHints: string[];
+  localRiskSignals: string[];
+  collectorConfidence?: number;
+}
+
 export interface AlertRecord {
   id: string;
   incidentId: string;
@@ -81,6 +124,12 @@ export interface AlertRecord {
   explanation: string;
   features: string[];
   source: EventSource;
+  sourceFamily: SourceFamily;
+  sourceAdapter: string;
+  sourceRef: string;
+  eventHash: string;
+  occurredAt: string;
+  agentMetadata?: AgentAdvisoryMetadata;
   sanitizedPreview: string;
   contentLength: number;
   piiDetected: boolean;
@@ -94,12 +143,19 @@ export interface AlertRecord {
 
 export interface EventLogRecord {
   id: string;
+  alertId: string;
   incidentId: string;
   eventId: string;
   tenantId: string;
   eventType: EventType;
   datasetFamily: DatasetFamily;
   source: EventSource;
+  sourceFamily: SourceFamily;
+  sourceAdapter: string;
+  sourceRef: string;
+  eventHash: string;
+  occurredAt: string;
+  agentMetadata?: AgentAdvisoryMetadata;
   contentLength: number;
   label: ThreatLabel;
   risk: RiskLevel;
@@ -110,6 +166,95 @@ export interface EventLogRecord {
   modelUsed: string;
   fallbackUsed: boolean;
   timestamp: string;
+}
+
+export type IncidentStatus = "new" | "investigating" | "awaiting_approval" | "contained" | "resolved";
+export type TriagePriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type ActionStatus = "requested" | "approved" | "rejected" | "completed";
+export type ActionExecutionMode = "notify" | "approval";
+
+export interface IncidentTimelineEntry {
+  id: string;
+  alertId: string;
+  eventId: string;
+  eventType: EventType;
+  title: string;
+  summary: string;
+  sourceFamily: SourceFamily;
+  sourceAdapter: string;
+  occurredAt: string;
+  severity: AlertSeverity;
+}
+
+export interface IncidentActionRecord {
+  id: string;
+  incidentId: string;
+  label: string;
+  actionKey: string;
+  status: ActionStatus;
+  requiresApproval: boolean;
+  executionMode: ActionExecutionMode;
+  createdAt: string;
+  updatedAt: string;
+  approvedAt?: string;
+  rejectedAt?: string;
+  executionMessage?: string;
+}
+
+export interface AuditTrailEntry {
+  id: string;
+  kind: "event_ingested" | "action_requested" | "action_approved" | "action_rejected" | "notification_sent" | "status_updated";
+  message: string;
+  createdAt: string;
+}
+
+export interface NotificationRecord {
+  id: string;
+  kind: "critical_incident" | "incident_escalated" | "approval_required" | "incident_resolved";
+  channel: "email";
+  createdAt: string;
+  delivered: boolean;
+  subject: string;
+  recipient: string;
+  provider: string;
+}
+
+export interface IncidentRecord {
+  id: string;
+  tenantId: string;
+  status: IncidentStatus;
+  severity: AlertSeverity;
+  triagePriority: TriagePriority;
+  sourceFamilies: SourceFamily[];
+  firstSeenAt: string;
+  lastSeenAt: string;
+  summary: string;
+  recommendedActions: string[];
+  correlatedSignals: CorrelatedSignal[];
+  timeline: IncidentTimelineEntry[];
+  auditTrail: AuditTrailEntry[];
+  actions: IncidentActionRecord[];
+  notifications: NotificationRecord[];
+  latestAlertId: string;
+  latestEventId: string;
+  aiProvenance: IncidentAiProvenance;
+}
+
+export interface CopilotFeedItem {
+  id: string;
+  incidentId: string;
+  title: string;
+  summary: string;
+  severity: AlertSeverity;
+  sourceFamilies: SourceFamily[];
+  createdAt: string;
+}
+
+export interface CopilotAnswer {
+  answer: string;
+  usedFallback: boolean;
+  source: "local_model" | "cloud_model" | "deterministic_fallback" | "backend";
+  modelUsed: string;
 }
 
 export interface TimelinePoint {
