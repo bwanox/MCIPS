@@ -24,7 +24,7 @@ const parseNumber = (value: string | undefined, defaultValue: number): number =>
     return defaultValue;
   }
 
-  const parsed = Number(value);
+const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : defaultValue;
 };
 

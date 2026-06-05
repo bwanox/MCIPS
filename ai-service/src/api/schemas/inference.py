@@ -38,3 +38,4 @@ class AnalyzeResponse(BaseModel):
     features: list[str]
     model_used: str
     fallback_used: bool
+    

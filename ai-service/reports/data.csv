@@ -1,0 +1,51 @@
+text,language,label
+"CIH Bank: Your transfer of 2500 MAD has been completed successfully.","English","safe"
+"CIH Bank: Your account has been suspended. Click here immediately to verify your identity.","English","phishing"
+
+"Attijariwafa Bank: Your OTP code is 483921. Do not share it with anyone.","English","safe"
+"Attijariwafa Bank: Send us your OTP code immediately to restore access to your account.","English","phishing"
+
+"Banque Populaire: Your account statement for June is now available.","English","safe"
+"Banque Populaire: Confirm your banking information within 24 hours or your account will be closed.","English","phishing"
+
+"Maroc Telecom: Your monthly bill has been generated and is available online.","English","safe"
+"Maroc Telecom: Claim your reward now by providing your banking credentials.","English","phishing"
+
+"Votre virement de 1200 MAD a été effectué avec succès.","French","safe"
+"Votre compte bancaire est bloqué. Cliquez sur ce lien pour le débloquer.","French","phishing"
+
+"Attijariwafa Bank: Votre code OTP est 824561. Ne le partagez avec personne.","French","safe"
+"Attijariwafa Bank: Veuillez confirmer votre code OTP pour éviter la suspension de votre compte.","French","phishing"
+
+"Votre colis est en cours de livraison et arrivera demain.","French","safe"
+"Votre colis est retenu. Payez immédiatement les frais via ce lien.","French","phishing"
+
+"تم تنفيذ عملية تحويل بقيمة 1500 درهم بنجاح.","Arabic","safe"
+"تم إيقاف حسابك البنكي. اضغط على الرابط التالي لتأكيد معلوماتك.","Arabic","phishing"
+
+"رمز التحقق الخاص بك هو 562891. لا تشاركه مع أي شخص.","Arabic","safe"
+"أرسل رمز التحقق الخاص بك الآن لتجنب إغلاق الحساب.","Arabic","phishing"
+
+"تم تأكيد موعدك غداً على الساعة العاشرة صباحاً.","Arabic","safe"
+"حسابك معرض للحذف النهائي. قم بتحديث بياناتك فوراً عبر هذا الرابط.","Arabic","phishing"
+
+"CIH: lvirman dyalk t9bel b najah.","Darija","safe"
+"CIH: compte dyalk tsed. dkhol lhad lien bach t3awed tf3elou.","Darija","phishing"
+
+"Banque Populaire: code OTP dyalk howa 348291. mat3tih l7tta wa7ed.","Darija","safe"
+"3tina code OTP bach n7ellou lik compte dyalk.","Darija","phishing"
+
+"Colis dyalk ghadi ywsel ghdda.","Darija","safe"
+"Colis dyalk m7bous. khassk tkheless daba mn had lien.","Darija","phishing"
+
+"Université Hassan II: Votre inscription a été validée.","French","safe"
+"Université Hassan II: Votre compte étudiant expirera aujourd'hui. Connectez-vous ici pour le réactiver.","French","phishing"
+
+"Your Microsoft account password was changed successfully.","English","safe"
+"Microsoft Security Alert: Verify your password immediately to prevent account deletion.","English","phishing"
+
+"Your Amazon order has been shipped and is expected tomorrow.","English","safe"
+"Amazon: Your payment method failed. Re-enter your card details immediately.","English","phishing"
+
+"تم شحن طلبك وسيصل خلال يومين.","Arabic","safe"
+"حدث خطأ في عملية الدفع. قم بإدخال معلومات بطاقتك مجدداً عبر الرابط.","Arabic","phishing"
