@@ -673,7 +673,11 @@ export const CopilotDeskView = () => {
 };
 
 export const IncidentWorkspaceView = () => {
-  const { selectedIncident, latestCorrelatedIncident } = useDashboardWorkspace();
+  const { selectedIncident, alerts } = useDashboardWorkspace();
+
+  const selectedAlert = selectedIncident
+    ? (alerts.find(a => a.id === selectedIncident.latestAlertId) || alerts.find(a => a.incidentId === selectedIncident.id) || null)
+    : null;
 
   return (
     <div className="case-board-grid">
@@ -692,7 +696,7 @@ export const IncidentWorkspaceView = () => {
         <IncidentTimeline incident={selectedIncident} />
       </div>
       <aside className="case-rail">
-        <EvidencePanel alert={latestCorrelatedIncident} incident={selectedIncident} />
+        <EvidencePanel alert={selectedAlert} incident={selectedIncident} />
         <ActionDock incident={selectedIncident} />
         <NotificationRail incident={selectedIncident} />
       </aside>
