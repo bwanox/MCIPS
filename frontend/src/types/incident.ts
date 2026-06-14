@@ -3,7 +3,14 @@ import type { CyberEventType, SourceFamily } from "./event";
 
 export type IncidentStatus = "new" | "investigating" | "awaiting_approval" | "contained" | "resolved";
 export type TriagePriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-export type IncidentActionStatus = "requested" | "approved" | "rejected" | "completed";
+export type IncidentActionStatus =
+  | "pending"
+  | "approved"
+  | "dispatching"
+  | "completed"
+  | "failed"
+  | "simulated"
+  | "rejected";
 
 export interface IncidentTimelineEntry {
   id: string;
@@ -20,6 +27,7 @@ export interface IncidentTimelineEntry {
   riskChange?: string;
   recommendedAction?: string;
   evidenceType?: string;
+  citationId: string;
 }
 
 export interface IncidentAction {
@@ -33,6 +41,14 @@ export interface IncidentAction {
   createdAt: string;
   updatedAt: string;
   executionMessage?: string;
+  executionReceipt?: {
+    idempotencyId: string;
+    provider: string;
+    outcome: "completed" | "failed" | "simulated";
+    executedAt: string;
+    message: string;
+    artifactPaths: string[];
+  };
 }
 
 export interface IncidentNotification {
@@ -41,6 +57,7 @@ export interface IncidentNotification {
   channel: "email";
   createdAt: string;
   delivered: boolean;
+  deliveryStatus: "sent" | "failed" | "simulated" | "not_sent";
   subject: string;
   recipient: string;
   provider: string;
@@ -59,6 +76,16 @@ export interface Incident {
   recommendedActions: string[];
   correlatedSignals: CorrelatedSignal[];
   timeline: IncidentTimelineEntry[];
+  evidence: Array<{
+    id: string;
+    citationId: string;
+    alertId: string;
+    eventId: string;
+    title: string;
+    summary: string;
+    occurredAt: string;
+    sourceFamily: SourceFamily;
+  }>;
   auditTrail: Array<{ id: string; kind: string; message: string; createdAt: string }>;
   actions: IncidentAction[];
   notifications: IncidentNotification[];
@@ -80,10 +107,14 @@ export interface Incident {
     lastCopilotAnswerFallbackUsed?: boolean;
   };
   mitre?: Array<{
+    mappingType: "candidate";
     tactic: string;
     techniqueId: string;
     technique: string;
     reason: string;
+    confidence: number;
+    evidenceIds: string[];
+    officialUrl: string;
   }>;
   threatIntel?: Array<{
     type: "url" | "domain" | "ip" | "sender" | "brand";
@@ -113,7 +144,16 @@ export interface CopilotFeedItem {
 
 export interface CopilotAnswer {
   answer: string;
+  citations: string[];
   usedFallback: boolean;
   source: "local_model" | "cloud_model" | "deterministic_fallback" | "backend";
   modelUsed: string;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }

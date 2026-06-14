@@ -1,12 +1,10 @@
 import type { NextFunction, Request, Response } from "express";
 
-import type { AuthService } from "../../modules/auth/application/services/auth.service.js";
+import type { AuthService, AuthUser } from "../../modules/auth/application/services/auth.service.js";
 import { HttpError } from "./error-middleware.js";
 
 export interface AuthenticatedRequest extends Request {
-  user?: {
-    email: string;
-  };
+  user?: AuthUser;
 }
 
 export const authMiddleware =

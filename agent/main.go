@@ -21,6 +21,7 @@ type appConfig struct {
 	Addr              string
 	BackendEventsURL  string
 	AgentToken        string
+	CollectorKey      string
 	SMSInboxPath      string
 	AuthLogPath       string
 	ArtifactOutputDir string
@@ -71,6 +72,7 @@ type actionCommand struct {
 
 type actionResponse struct {
 	Accepted      bool     `json:"accepted"`
+	Outcome       string   `json:"outcome"`
 	Provider      string   `json:"provider"`
 	Message       string   `json:"message"`
 	ArtifactPaths []string `json:"artifactPaths,omitempty"`
@@ -156,7 +158,8 @@ func loadConfig() appConfig {
 	return appConfig{
 		Addr:              env("AGENT_ADDR", ":4100"),
 		BackendEventsURL:  strings.TrimRight(env("BACKEND_EVENTS_URL", "http://127.0.0.1:4000/api/events"), "/"),
-		AgentToken:        env("AGENT_API_TOKEN", "agent-secret"),
+		AgentToken:        env("AGENT_API_TOKEN", ""),
+		CollectorKey:      env("COLLECTOR_API_KEY", ""),
 		SMSInboxPath:      env("AGENT_SMS_INBOX_PATH", "./runtime/sms-inbox.ndjson"),
 		AuthLogPath:       env("AGENT_AUTH_LOG_PATH", "./runtime/auth-log.ndjson"),
 		ArtifactOutputDir: env("AGENT_ARTIFACT_OUTPUT_DIR", "./runtime/artifacts"),
@@ -562,6 +565,7 @@ func (app *agentApp) forwardEvent(payload map[string]any) error {
 		return err
 	}
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Collector-Key", app.cfg.CollectorKey)
 
 	response, err := app.client.Do(request)
 	if err != nil {
@@ -658,8 +662,9 @@ func (app *agentApp) executeAction(command actionCommand) (actionResponse, error
 
 	return actionResponse{
 		Accepted:      true,
+		Outcome:       "simulated",
 		Provider:      "go_agent",
-		Message:       "approved action artifacts written successfully",
+		Message:       "simulated action artifacts written successfully",
 		ArtifactPaths: artifactPaths,
 	}, nil
 }
@@ -705,6 +710,7 @@ func (app *agentApp) routes() *http.ServeMux {
 
 	mux.HandleFunc("/agent/events", withAgentAuth(func(writer http.ResponseWriter, request *http.Request) {
 		defer request.Body.Close()
+		request.Body = http.MaxBytesReader(writer, request.Body, 256*1024)
 		var payload map[string]any
 		if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
 			http.Error(writer, "invalid event payload", http.StatusBadRequest)
@@ -722,6 +728,7 @@ func (app *agentApp) routes() *http.ServeMux {
 
 	mux.HandleFunc("/agent/actions", withAgentAuth(func(writer http.ResponseWriter, request *http.Request) {
 		defer request.Body.Close()
+		request.Body = http.MaxBytesReader(writer, request.Body, 256*1024)
 		var command actionCommand
 		if err := json.NewDecoder(request.Body).Decode(&command); err != nil {
 			http.Error(writer, "invalid action payload", http.StatusBadRequest)

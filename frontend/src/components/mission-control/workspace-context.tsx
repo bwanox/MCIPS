@@ -93,11 +93,11 @@ export const DashboardWorkspaceProvider = ({ children }: { children: ReactNode }
   const refreshData = useCallback(() => {
     void Promise.all([
       alertsService.recent().then(setAlerts),
-      incidentsService.list().then((items) => {
-        setIncidents(items);
-        setSelectedIncidentId((current) => current || items[0]?.id || "");
+      incidentsService.list().then((result) => {
+        setIncidents(result.items);
+        setSelectedIncidentId((current) => current || result.items[0]?.id || "");
       }),
-      copilotService.feed().then(setCopilotFeed),
+      copilotService.feed().then((result) => setCopilotFeed(result.items)),
       statsService.summary().then(setSummary),
       statsService.timeline("today").then(setTimeline),
       simulationService.status().then(setSimulationStatus),
@@ -157,7 +157,7 @@ export const DashboardWorkspaceProvider = ({ children }: { children: ReactNode }
     null;
   const selectedIncident = incidents.find((incident) => incident.id === selectedIncidentId) ?? incidents[0] ?? null;
   const selectedApprovalActionId =
-    selectedIncident?.actions.find((action) => action.requiresApproval && action.status === "requested")?.id ?? null;
+    selectedIncident?.actions.find((action) => action.requiresApproval && action.status === "pending")?.id ?? null;
   const selectedNotifications = selectedIncident?.notifications.slice(0, 5) ?? [];
   const aiFallbackActive =
     selectedIncident?.aiProvenance.summaryFallbackUsed ||

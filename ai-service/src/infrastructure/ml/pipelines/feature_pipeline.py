@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 import hashlib
+import math
 from urllib.parse import urlparse, parse_qs
 from typing import Any
 
@@ -217,7 +218,7 @@ class URLFeatureExtractor:
         text_len = len(text)
         for count in frequencies.values():
             probability = count / text_len
-            entropy -= probability * (probability + 1e-10)  # Avoid log(0)
+            entropy -= probability * math.log2(probability)
         
         return round(entropy, 2)
 

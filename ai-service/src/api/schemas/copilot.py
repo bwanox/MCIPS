@@ -47,6 +47,15 @@ class CopilotTimelineEntry(BaseModel):
     occurredAt: str
     sourceFamily: str
     severity: str
+    citationId: str
+
+
+class CopilotEvidenceEntry(BaseModel):
+    citationId: str
+    title: str
+    summary: str
+    occurredAt: str
+    sourceFamily: str
 
 
 class CopilotAnswerRequest(BaseModel):
@@ -55,10 +64,12 @@ class CopilotAnswerRequest(BaseModel):
     sourceFamilies: list[str] = Field(default_factory=list)
     recommendedActions: list[str] = Field(default_factory=list)
     timeline: list[CopilotTimelineEntry] = Field(default_factory=list)
-    question: str
+    evidence: list[CopilotEvidenceEntry] = Field(default_factory=list)
+    question: str = Field(..., min_length=1, max_length=2_000)
 
 
 class CopilotAnswerResponse(BaseModel):
     answer: str
+    citations: list[str] = Field(default_factory=list)
     model_used: str
     fallback_used: bool

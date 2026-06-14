@@ -16,7 +16,7 @@ describe("MITRE ATT&CK Engine", () => {
 
     const mappings = mapAlertToMitre(alertMock);
     expect(mappings.length).toBeGreaterThanOrEqual(1);
-    expect(mappings[0].tactic).toBe("Credential Access");
+    expect(mappings[0].tactic).toBe("Initial Access");
     expect(mappings[0].techniqueId).toBe("T1566");
     expect(mappings[0].technique).toBe("Phishing");
   });

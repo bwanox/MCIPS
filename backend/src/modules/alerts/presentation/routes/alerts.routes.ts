@@ -5,6 +5,8 @@ import type { AuthService } from "../../../auth/application/services/auth.servic
 import { authMiddleware } from "../../../../shared/presentation/auth-middleware.js";
 import { asyncHandler } from "../../../../shared/utils/async-handler.js";
 import { HttpError } from "../../../../shared/presentation/error-middleware.js";
+import type { AuthenticatedRequest } from "../../../../shared/presentation/auth-middleware.js";
+import { paginationQuerySchema } from "../../../../shared/presentation/pagination.js";
 
 export const createAlertsRoutes = (alertsRepository: AlertRepository, authService: AuthService): Router => {
   const router = Router();
@@ -14,25 +16,26 @@ export const createAlertsRoutes = (alertsRepository: AlertRepository, authServic
 
   router.get(
     "/",
-    asyncHandler(async (_request, response) => {
-      response.json(await alertsRepository.list());
+    asyncHandler(async (request: AuthenticatedRequest, response) => {
+      const query = paginationQuerySchema.parse(request.query);
+      response.json(await alertsRepository.paginate(request.user!.tenantId, query.page, query.limit));
     })
   );
 
   router.get(
     "/recent",
-    asyncHandler(async (_request, response) => {
-      const alerts = await alertsRepository.list();
+    asyncHandler(async (request: AuthenticatedRequest, response) => {
+      const alerts = await alertsRepository.list(request.user!.tenantId);
       response.json(alerts.slice(0, 10));
     })
   );
 
   router.get(
     "/:id",
-    asyncHandler(async (request, response) => {
+    asyncHandler(async (request: AuthenticatedRequest, response) => {
       const alertId = Array.isArray(request.params.id) ? request.params.id[0] : request.params.id;
       const alert = await alertsRepository.findById(alertId);
-      if (!alert) {
+      if (!alert || alert.tenantId !== request.user!.tenantId) {
         throw new HttpError(404, "Alert not found");
       }
 
@@ -42,10 +45,10 @@ export const createAlertsRoutes = (alertsRepository: AlertRepository, authServic
 
   router.get(
     "/:id/export",
-    asyncHandler(async (request, response) => {
+    asyncHandler(async (request: AuthenticatedRequest, response) => {
       const alertId = Array.isArray(request.params.id) ? request.params.id[0] : request.params.id;
       const alert = await alertsRepository.findById(alertId);
-      if (!alert) {
+      if (!alert || alert.tenantId !== request.user!.tenantId) {
         throw new HttpError(404, "Alert not found");
       }
 

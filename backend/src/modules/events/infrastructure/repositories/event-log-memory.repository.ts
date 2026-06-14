@@ -1,4 +1,4 @@
-import type { EventLogRecord } from "../../../../shared/types/platform.js";
+import type { EventLogRecord, PaginatedResult } from "../../../../shared/types/platform.js";
 import type { EventDuplicateLookup, EventLogRepository } from "../../domain/event-log.repository.js";
 
 export class EventLogMemoryRepository implements EventLogRepository {
@@ -9,8 +9,20 @@ export class EventLogMemoryRepository implements EventLogRepository {
     return eventLog;
   }
 
-  async list(): Promise<EventLogRecord[]> {
-    return [...this.eventLogs];
+  async list(tenantId?: string): Promise<EventLogRecord[]> {
+    return this.eventLogs.filter((eventLog) => !tenantId || eventLog.tenantId === tenantId);
+  }
+
+  async paginate(tenantId: string, page: number, limit: number): Promise<PaginatedResult<EventLogRecord>> {
+    const filtered = await this.list(tenantId);
+    const offset = (page - 1) * limit;
+    return {
+      items: filtered.slice(offset, offset + limit),
+      page,
+      limit,
+      total: filtered.length,
+      totalPages: Math.ceil(filtered.length / limit)
+    };
   }
 
   async findDuplicate(criteria: EventDuplicateLookup): Promise<EventLogRecord | null> {

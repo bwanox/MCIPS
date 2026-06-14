@@ -24,6 +24,10 @@ const eventLogSchema = new Schema(
     detectedBank: { type: String },
     sanitizedPayload: { type: Schema.Types.Mixed, required: true },
     modelUsed: { type: String, required: true },
+    modelVersion: { type: String },
+    decisionSource: { type: String },
+    componentScores: { type: Schema.Types.Mixed },
+    evaluationStatus: { type: String },
     fallbackUsed: { type: Boolean, required: true },
     timestamp: { type: String, required: true }
   },

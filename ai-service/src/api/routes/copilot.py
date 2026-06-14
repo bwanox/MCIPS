@@ -54,6 +54,7 @@ async def answer_copilot(
     result = await reasoning_service.answer_copilot(request.model_dump())
     return CopilotAnswerResponse(
         answer=str(result["answer"]).strip(),
+        citations=[str(value) for value in result.get("citations", [])],
         model_used=str(result["model_used"]),
         fallback_used=bool(result["fallback_used"]),
     )

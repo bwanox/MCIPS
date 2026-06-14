@@ -42,6 +42,7 @@ env/
 # Agent local runtime/cache
 agent/.gocache/
 agent/runtime/
+agent/mcips-agent
 
 # Misc local files
 *.sqlite3

@@ -16,6 +16,22 @@ const bankPatterns = [
 const maskRule = (value: string, pattern: RegExp, replacement: string): string =>
   value.replace(pattern, replacement);
 
+const normalizeObfuscatedText = (value: string): string => {
+  let normalized = value.normalize("NFKC").replace(/[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g, "");
+  normalized = normalized
+    .replace(/\bhxxps?:\/\//gi, (match) => (match.toLowerCase().startsWith("hxxps") ? "https://" : "http://"))
+    .replace(/\[\.\]|\(\.\)|\{\.\}/g, ".");
+
+  if (/%(?:[0-9a-f]{2})/i.test(normalized)) {
+    try {
+      normalized = decodeURIComponent(normalized);
+    } catch {
+      // Keep partially encoded text when it is not a valid URI component.
+    }
+  }
+  return normalized;
+};
+
 const sanitizeText = (
   rawContent: string,
   options?: { maskIp?: boolean; maskSessionId?: boolean }
@@ -24,7 +40,7 @@ const sanitizeText = (
   piiDetected: boolean;
   detectedBank?: string;
 } => {
-  let sanitizedContent = rawContent;
+  let sanitizedContent = normalizeObfuscatedText(rawContent);
   let piiDetected = false;
   let detectedBank: string | undefined;
 
@@ -45,13 +61,25 @@ const sanitizeText = (
   });
 
   applyMask(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[EMAIL]");
-  applyMask(/(?:\+212|0)(?:\s?\d){9,}/g, "[PHONE]");
+  applyMask(/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g, "[JWT]");
+  applyMask(
+    /\b(?:sk|pk|api|key|token)[_-](?:live|test|prod)?[_-]?[A-Za-z0-9_-]{16,}\b/gi,
+    "[API_KEY]"
+  );
+  applyMask(/\bMA\d{2}(?:\s?\d){24}\b/gi, "[IBAN]");
+  applyMask(/\b(?:RIB|releve d'identite bancaire)\s*[:=-]?\s*(?:\d[\s-]?){20,30}\b/gi, "[RIB]");
+  applyMask(/(?<!\d)(?:\+?212|00212|0)[\s.-]?[5-7](?:[\s.-]?\d){8}(?!\d)/g, "[PHONE]");
   applyMask(/\b(?:otp|code|pin)\s*[:=-]?\s*\d{4,8}\b/gi, "[OTP]");
   applyMask(/\b\d{10,18}\b/g, "[ACCOUNT]");
   applyMask(/\b[A-Z]{1,2}\d{5,10}\b/gi, "[ID]");
   applyMask(/https?:\/\/[^\s]+/gi, "[URL]");
   applyMask(/\b(?:mr|mrs|ms)\.?\s+[A-Z][a-z]+\b/g, "[NAME]");
   applyMask(/\b(?:cin|cnie|id)\s*[:=-]?\s*[A-Z]{1,2}\d{4,10}\b/gi, "[ID]");
+  applyMask(/\b[A-Z]{1,2}\s?\d{5,8}\b/gi, "[MOROCCAN_ID]");
+  applyMask(
+    /\b(?:[A-F0-9]{1,4}:){2,7}[A-F0-9]{1,4}\b/gi,
+    "[IPV6]"
+  );
 
   if (options?.maskIp) {
     applyMask(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, "[IP]");

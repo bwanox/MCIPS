@@ -34,18 +34,24 @@ export const env = {
   clientUrl: process.env.CLIENT_URL ?? "http://localhost:3000",
   clientUrls: parseList(process.env.CLIENT_URLS ?? process.env.CLIENT_URL, ["http://localhost:3000"]),
   aiServiceUrl: process.env.AI_SERVICE_URL ?? "http://127.0.0.1:8000",
+  aiServiceToken: process.env.AI_SERVICE_TOKEN ?? "",
   copilotDedupeWindowMs: parseNumber(process.env.COPILOT_DEDUPE_WINDOW_MS, 5 * 60 * 1000),
   agentApiUrl: process.env.AGENT_API_URL ?? "http://127.0.0.1:4100",
-  agentApiToken: process.env.AGENT_API_TOKEN ?? "agent-secret",
+  agentApiToken: process.env.AGENT_API_TOKEN ?? "",
   dashboardUrl: process.env.DASHBOARD_URL ?? "http://localhost:3000/dashboard",
   mailWebhookUrl: process.env.MAIL_WEBHOOK_URL ?? "",
   mailFrom: process.env.MAIL_FROM ?? "alerts@mcips.local",
-  jwtSecret: process.env.JWT_SECRET ?? "change-me",
+  jwtSecret: process.env.JWT_SECRET ?? "",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "8h",
   adminEmail: process.env.ADMIN_EMAIL ?? "admin@mcips.local",
+  adminTenantId: process.env.ADMIN_TENANT_ID ?? "tenant-demo",
   adminPasswordHash:
     process.env.ADMIN_PASSWORD_HASH ?? "$2a$10$f4HOvMKxaWVQ8wfIzISQHOrFJ2r93NyvIdokBwNrDPcNTQDPZEVg.",
   mongodbUri: process.env.MONGODB_URI ?? "mongodb://127.0.0.1:27017/mcips",
+  collectorKeyPepper: process.env.COLLECTOR_KEY_PEPPER ?? "",
+  bootstrapCollectorKey: process.env.BOOTSTRAP_COLLECTOR_KEY ?? "",
+  bootstrapCollectorTenantId: process.env.BOOTSTRAP_COLLECTOR_TENANT_ID ?? "tenant-demo",
+  bootstrapCollectorAdapter: process.env.BOOTSTRAP_COLLECTOR_ADAPTER ?? "go-agent",
   useInMemoryDb: parseBoolean(process.env.USE_IN_MEMORY_DB, true),
   storeRawContent: parseBoolean(process.env.STORE_RAW_CONTENT, false),
   rateLimitWindowMs: parseNumber(process.env.RATE_LIMIT_WINDOW_MS, 60_000),
@@ -53,3 +59,31 @@ export const env = {
 } as const;
 
 export type AppEnv = typeof env;
+
+const knownUnsafeSecrets = new Set(["change-me", "agent-secret", "secret", "password"]);
+
+export const validateProductionEnvironment = (): void => {
+  if (env.nodeEnv !== "production") {
+    return;
+  }
+
+  const invalid: string[] = [];
+  const requireSecret = (name: string, value: string, minLength = 32): void => {
+    if (value.length < minLength || knownUnsafeSecrets.has(value.toLowerCase())) {
+      invalid.push(name);
+    }
+  };
+
+  requireSecret("JWT_SECRET", env.jwtSecret);
+  requireSecret("AGENT_API_TOKEN", env.agentApiToken);
+  requireSecret("COLLECTOR_KEY_PEPPER", env.collectorKeyPepper);
+  requireSecret("BOOTSTRAP_COLLECTOR_KEY", env.bootstrapCollectorKey);
+  requireSecret("AI_SERVICE_TOKEN", env.aiServiceToken);
+
+  if (!process.env.ADMIN_PASSWORD_HASH) invalid.push("ADMIN_PASSWORD_HASH");
+  if (env.useInMemoryDb) invalid.push("USE_IN_MEMORY_DB=false");
+
+  if (invalid.length > 0) {
+    throw new Error(`Unsafe production configuration: ${invalid.join(", ")}`);
+  }
+};

@@ -1,147 +1,115 @@
 {
-  "evaluation_timestamp": "2026-06-14T16:50:52.624394",
+  "generated_at": "2026-06-14T20:46:59.820970+00:00",
+  "evaluation_status": "pilot",
+  "method": "5-fold stratified out-of-fold evaluation; final artifact trained on all pilot examples",
+  "dataset": {
+    "size": 34,
+    "labels": {
+      "safe": 17,
+      "phishing": 17
+    },
+    "languages": {
+      "english": 12,
+      "french": 8,
+      "arabic": 8,
+      "darija": 6
+    },
+    "source": "Repository-owned synthetic/curated pilot corpus"
+  },
   "models": {
-    "phishing": {
-      "model": "phishing_tfidf_v1",
-      "timestamp": "2026-06-14T16:50:52.652962",
-      "training_metrics": {
-        "accuracy": 0.5,
-        "precision": 0.5,
-        "recall": 1.0,
-        "f1": 0.6667,
-        "roc_auc": 1.0,
-        "samples": 9
+    "rules": {
+      "confusion_matrix": {
+        "labels": [
+          "safe",
+          "phishing"
+        ],
+        "values": [
+          [
+            17,
+            0
+          ],
+          [
+            12,
+            5
+          ]
+        ]
       },
-      "test_accuracy": 0.7778,
-      "precision": 0.6667,
-      "recall": 1.0,
-      "f1_score": 0.8,
-      "roc_auc": 0.85,
-      "test_samples": 9,
-      "supported_languages": [
-        "english",
-        "french",
-        "arabic",
-        "darija"
-      ]
+      "accuracy": 0.6471,
+      "precision": 1.0,
+      "recall": 0.2941,
+      "f1": 0.4545,
+      "pr_auc": 0.7274,
+      "roc_auc": 0.7145,
+      "threshold": 0.5,
+      "latency_ms": {
+        "median": 0.0167,
+        "p95": 0.0242
+      }
     },
-    "url_risk": {
-      "model": "url_risk_v1",
-      "timestamp": "2026-06-14T16:50:52.660802",
-      "test_samples": 6,
-      "average_error": 0.2583,
-      "test_results": [
-        {
-          "url": "https://www.google.com",
-          "predicted_risk": 0.25,
-          "expected_risk_range": 0.05,
-          "reasons": [
-            "brand_typosquatting"
+    "ml": {
+      "confusion_matrix": {
+        "labels": [
+          "safe",
+          "phishing"
+        ],
+        "values": [
+          [
+            11,
+            6
+          ],
+          [
+            7,
+            10
           ]
-        },
-        {
-          "url": "http://bit.ly/xyz",
-          "predicted_risk": 0.55,
-          "expected_risk_range": 0.8,
-          "reasons": [
-            "brand_typosquatting",
-            "shortened_url",
-            "no_https"
-          ]
-        },
-        {
-          "url": "https://192.168.1.1/admin",
-          "predicted_risk": 0.45,
-          "expected_risk_range": 0.75,
-          "reasons": [
-            "ip_address",
-            "homoglyph_characters",
-            "suspicious_characters"
-          ]
-        },
-        {
-          "url": "http://paypa1.com/verify",
-          "predicted_risk": 0.6,
-          "expected_risk_range": 0.85,
-          "reasons": [
-            "homoglyph_characters",
-            "brand_typosquatting",
-            "no_https",
-            "suspicious_characters"
-          ]
-        },
-        {
-          "url": "https://attijariwafa.com/secure",
-          "predicted_risk": 0.25,
-          "expected_risk_range": 0.1,
-          "reasons": [
-            "brand_typosquatting"
-          ]
-        },
-        {
-          "url": "http://attijari-wafaa.tk/login",
-          "predicted_risk": 0.5,
-          "expected_risk_range": 0.9,
-          "reasons": [
-            "suspicious_tld",
-            "brand_typosquatting",
-            "no_https"
-          ]
-        }
-      ]
+        ]
+      },
+      "accuracy": 0.6176,
+      "precision": 0.625,
+      "recall": 0.5882,
+      "f1": 0.6061,
+      "pr_auc": 0.5742,
+      "roc_auc": 0.5398,
+      "threshold": 0.5,
+      "latency_ms": {
+        "median": 0.2723,
+        "p95": 0.3736
+      }
     },
-    "login_anomaly": {
-      "model": "login_anomaly_v1",
-      "timestamp": "2026-06-14T16:50:52.661097",
-      "test_samples": 3,
-      "accuracy": 0.6667,
-      "test_results": [
-        {
-          "login_data": {
-            "country": "Morocco",
-            "device": "Chrome Mobile",
-            "user_agent": "Mozilla",
-            "ip_address": "192.168.1.1"
-          },
-          "predicted_label": "normal_login",
-          "expected_label": "normal_login",
-          "correct": true,
-          "confidence": 0.3
-        },
-        {
-          "login_data": {
-            "country": "Russia",
-            "device": "Unknown device",
-            "user_agent": "curl",
-            "ip_address": "185.220.101.1"
-          },
-          "predicted_label": "suspicious_login",
-          "expected_label": "suspicious_login",
-          "correct": true,
-          "confidence": 0.99
-        },
-        {
-          "login_data": {
-            "country": "France",
-            "device": "Safari",
-            "user_agent": "Mozilla",
-            "ip_address": "1.2.3.4",
-            "hour": 3
-          },
-          "predicted_label": "normal_login",
-          "expected_label": "suspicious",
-          "correct": false,
-          "confidence": 0.35
-        }
-      ],
-      "features": [
-        "unknown_country",
-        "suspicious_ip_prefix",
-        "unknown_device",
-        "suspicious_user_agent",
-        "impossible_travel",
-        "unusual_hour"
-      ]
+    "hybrid": {
+      "confusion_matrix": {
+        "labels": [
+          "safe",
+          "phishing"
+        ],
+        "values": [
+          [
+            17,
+            0
+          ],
+          [
+            12,
+            5
+          ]
+        ]
+      },
+      "accuracy": 0.6471,
+      "precision": 1.0,
+      "recall": 0.2941,
+      "f1": 0.4545,
+      "pr_auc": 0.7475,
+      "roc_auc": 0.7301,
+      "threshold": 0.5,
+      "latency_ms": {
+        "median": 0.2891,
+        "p95": 0.4196
+      }
     }
-  }
+  },
+  "artifact": "model-artifacts/threat-classifier/model.pkl",
+  "limitations": [
+    "Only 34 curated pilot messages are evaluated.",
+    "Examples are synthetic or manually curated and are not representative of production traffic.",
+    "Per-language sample counts are too small for reliable language-specific performance claims.",
+    "The artifact is a competition baseline and must not be the sole security control."
+  ]
 }

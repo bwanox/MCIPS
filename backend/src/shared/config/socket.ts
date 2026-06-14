@@ -1,8 +1,10 @@
 import type { Server as HttpServer } from "node:http";
 
 import { Server as SocketIOServer } from "socket.io";
+import jwt from "jsonwebtoken";
 
 import { env } from "./env.js";
+import type { AuthUser } from "../../modules/auth/application/services/auth.service.js";
 
 export type AppSocketServer = SocketIOServer;
 
@@ -37,8 +39,8 @@ const isAllowedOrigin = (origin: string | undefined): boolean => {
   return env.nodeEnv !== "production" && isPrivateDevelopmentOrigin(origin);
 };
 
-export const createSocketServer = (server: HttpServer): AppSocketServer =>
-  new SocketIOServer(server, {
+export const createSocketServer = (server: HttpServer): AppSocketServer => {
+  const io = new SocketIOServer(server, {
     cors: {
       origin(origin, callback) {
         if (isAllowedOrigin(origin)) {
@@ -46,8 +48,48 @@ export const createSocketServer = (server: HttpServer): AppSocketServer =>
           return;
         }
 
+        console.warn(`[Socket.IO] Origin ${origin ?? "unknown"} blocked by CORS`);
         callback(new Error(`Origin ${origin ?? "unknown"} is not allowed by CORS`));
       },
-      methods: ["GET", "POST"]
+      methods: ["GET", "POST"],
+      credentials: true
+    },
+    transports: ["websocket", "polling"]
+  });
+
+  io.use((socket, next) => {
+    const token = typeof socket.handshake.auth?.token === "string" ? socket.handshake.auth.token : "";
+    if (!token) {
+      console.warn("[Socket.IO] Connection rejected: Missing token");
+      next(new Error("Authentication required"));
+      return;
+    }
+
+    if (!env.jwtSecret) {
+      console.error("[Socket.IO] Connection rejected: JWT_SECRET not configured");
+      next(new Error("Server configuration error"));
+      return;
+    }
+
+    try {
+      const user = jwt.verify(token, env.jwtSecret) as AuthUser;
+      socket.data.user = user;
+      next();
+    } catch (error) {
+      console.warn(`[Socket.IO] Connection rejected: Invalid token - ${error instanceof Error ? error.message : "Unknown error"}`);
+      next(new Error("Invalid token"));
     }
   });
+
+  io.on("connection", (socket) => {
+    const user = socket.data.user as AuthUser;
+    console.log(`[Socket.IO] Client connected: ${user.email} (Tenant: ${user.tenantId})`);
+    void socket.join(`tenant:${user.tenantId}`);
+
+    socket.on("disconnect", (reason) => {
+      console.log(`[Socket.IO] Client disconnected: ${user.email} - Reason: ${reason}`);
+    });
+  });
+
+  return io;
+};

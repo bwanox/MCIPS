@@ -3,7 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 
-import { env } from "./shared/config/env.js";
+import { env, validateProductionEnvironment } from "./shared/config/env.js";
 import { connectDatabase, type DatabaseState } from "./shared/infrastructure/database.js";
 import { errorMiddleware } from "./shared/presentation/error-middleware.js";
 import { notFoundMiddleware } from "./shared/presentation/not-found-middleware.js";
@@ -30,6 +30,9 @@ import { AgentClientService } from "./modules/agent/application/services/agent-c
 import { CopilotService } from "./modules/copilot/application/services/copilot.service.js";
 import { createCopilotRoutes } from "./modules/copilot/presentation/routes/copilot.routes.js";
 import type { AppSocketServer } from "./shared/config/socket.js";
+import { CollectorCredentialMemoryRepository } from "./modules/collectors/infrastructure/repositories/collector-credential-memory.repository.js";
+import { CollectorCredentialMongoRepository } from "./modules/collectors/infrastructure/repositories/collector-credential-mongo.repository.js";
+import { CollectorAuthService } from "./modules/collectors/application/services/collector-auth.service.js";
 
 const isPrivateDevelopmentOrigin = (origin: string): boolean => {
   try {
@@ -69,6 +72,7 @@ export interface AppServices {
 }
 
 export const createApp = async (io?: AppSocketServer): Promise<{ app: express.Express; services: AppServices }> => {
+  validateProductionEnvironment();
   const app = express();
   const databaseState = await connectDatabase();
   const alertsRepository =
@@ -77,6 +81,12 @@ export const createApp = async (io?: AppSocketServer): Promise<{ app: express.Ex
     databaseState.mode === "mongo" ? new EventLogMongoRepository() : new EventLogMemoryRepository();
   const incidentsRepository =
     databaseState.mode === "mongo" ? new IncidentMongoRepository() : new IncidentMemoryRepository();
+  const collectorCredentialRepository =
+    databaseState.mode === "mongo"
+      ? new CollectorCredentialMongoRepository()
+      : new CollectorCredentialMemoryRepository();
+  const collectorAuthService = new CollectorAuthService(collectorCredentialRepository);
+  await collectorAuthService.ensureBootstrapCredential();
   const statsService = new StatsService(alertsRepository);
   const aiInferenceService = new AiInferenceService();
   const emailNotificationService = new EmailNotificationService();
@@ -113,7 +123,7 @@ export const createApp = async (io?: AppSocketServer): Promise<{ app: express.Ex
     })
   );
   app.use(helmet());
-  app.use(express.json());
+  app.use(express.json({ limit: "256kb" }));
   app.use(
     rateLimit({
       windowMs: env.rateLimitWindowMs,
@@ -136,7 +146,7 @@ export const createApp = async (io?: AppSocketServer): Promise<{ app: express.Ex
   });
 
   app.use("/api/auth", createAuthRoutes(authService));
-  app.use("/api/events", createEventsRoutes(pipeline));
+  app.use("/api/events", createEventsRoutes(pipeline, authService, collectorAuthService, eventLogsRepository));
   app.use("/api/alerts", createAlertsRoutes(alertsRepository, authService));
   app.use("/api/stats", createStatsRoutes(statsService, authService));
   app.use("/api/simulation", createSimulationRoutes(simulationService, authService));

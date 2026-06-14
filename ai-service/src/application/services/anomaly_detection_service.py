@@ -41,6 +41,10 @@ class AnomalyDetectionService:
             explanation=explanation,
             features=features,
             model_used="local_login_rules_v1",
+            model_version="1.0.0",
+            decision_source="rules",
+            component_scores={"rules_score": round(score / 100, 4)},
+            evaluation_status="pilot",
             fallback_used=True,
         )
 

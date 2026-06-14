@@ -53,7 +53,15 @@ export const extractAndEnrichIndicators = (
   const foundValues = new Set<string>();
 
   const addIndicator = (value: string, type: ThreatIndicator["type"]) => {
-    const cleanValue = value.trim();
+    let cleanValue = value.trim();
+    if (type === "url") {
+      try {
+        const parsed = new URL(cleanValue);
+        cleanValue = `${parsed.origin}${parsed.pathname === "/" ? "" : parsed.pathname}`;
+      } catch {
+        // Keep the original value for heuristic analysis when parsing fails.
+      }
+    }
     if (!cleanValue || foundValues.has(cleanValue.toLowerCase())) return;
     foundValues.add(cleanValue.toLowerCase());
 
@@ -68,21 +76,7 @@ export const extractAndEnrichIndicators = (
         value: cleanValue
       });
     } else {
-      // Check if value contains any of the known local keys (e.g. cih-verification.example inside a URL)
-      let foundKey = "";
-      for (const key of Object.keys(localReputationList)) {
-        if (lookupKey.includes(key) && localReputationList[key].type === type) {
-          foundKey = key;
-          break;
-        }
-      }
-
-      if (foundKey) {
-        indicators.push({
-          ...localReputationList[foundKey],
-          value: cleanValue
-        });
-      } else {
+      {
         // Dynamic threat intelligence evaluation based on value and payload context
         let reputation: ThreatIndicator["reputation"] = "clean";
         let category = "General Metadata Indicator";
@@ -93,7 +87,17 @@ export const extractAndEnrichIndicators = (
 
         if (type === "url" || type === "domain") {
           const safeDomains = ["google.com", "github.com", "microsoft.com", "apple.com", "facebook.com", "twitter.com", "linkedin.com", "cihbank.ma", "cihbank.co.ma", "cih.ma"];
-          const isSafeDomain = safeDomains.some(d => valLower.includes(d));
+          let hostname = valLower;
+          if (type === "url") {
+            try {
+              hostname = new URL(cleanValue).hostname.toLowerCase().replace(/\.$/, "");
+            } catch {
+              hostname = "";
+            }
+          }
+          const isSafeDomain = safeDomains.some(
+            (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
+          );
 
           if (!isSafeDomain) {
             if (valLower.includes("cih")) {
@@ -255,7 +259,7 @@ export const extractAndEnrichIndicators = (
     }
   }
 
-  // Parse previewText and content for URLs
+  // Parse the raw text only to derive privacy-safe URL origins/hostnames before storage.
   const urlRegex = /(https?:\/\/[^\s"'`]+)/g;
   let match;
   while ((match = urlRegex.exec(previewText)) !== null) {

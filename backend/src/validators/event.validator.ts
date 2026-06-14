@@ -8,24 +8,28 @@ const sourceFamilySchema = z.enum(["email", "messaging", "login", "system"]);
 
 const numericField = z.number().finite();
 const optionalNumericField = z.number().finite().optional();
+const metadataString = z.string().trim().min(1).max(128);
+const optionalMetadataString = z.string().max(128).optional();
+const contentString = z.string().trim().min(1).max(10_000);
+const metadataArray = z.array(z.string().max(128)).max(32).optional();
 
 const contentPayloadSchema = z.object({
-  content: z.string().trim().min(1)
+  content: contentString
 });
 
 const smsPayloadSchema = contentPayloadSchema.extend({
-  sender: z.string().optional()
+  sender: optionalMetadataString
 });
 
 const emailMessagePayloadSchema = contentPayloadSchema;
 
 const loginPayloadSchema = z
   .object({
-    content: z.string().trim().min(1).optional(),
-    ip_address: z.string().optional(),
-    country: z.string().optional(),
-    device: z.string().optional(),
-    user_agent: z.string().optional()
+    content: contentString.optional(),
+    ip_address: optionalMetadataString,
+    country: optionalMetadataString,
+    device: optionalMetadataString,
+    user_agent: optionalMetadataString
   })
   .refine(
     (payload) =>
@@ -35,33 +39,33 @@ const loginPayloadSchema = z
 
 const logAnomalyPayloadSchema = z.object({
   timestamp: z.string().datetime().optional(),
-  log_level: z.string().trim().min(1),
-  component: z.string().trim().min(1),
-  event_id: z.string().trim().min(1).optional(),
-  message: z.string().trim().min(1),
+  log_level: metadataString,
+  component: metadataString,
+  event_id: metadataString.optional(),
+  message: contentString,
   anomaly_score: z.number().min(0).max(1),
   is_anomaly: z.number().int().min(0).max(1)
 });
 
 const phishingPayloadSchema = z.object({
-  email_text_hash: z.string().optional(),
-  email_text: z.string().optional(),
-  "Email Text": z.string().optional(),
-  label: z.string().optional(),
+  email_text_hash: optionalMetadataString,
+  email_text: z.string().max(10_000).optional(),
+  "Email Text": z.string().max(10_000).optional(),
+  label: optionalMetadataString,
   label_binary: z.number().int().min(0).max(1).optional(),
   char_count: z.number().int().min(0).optional(),
   word_count: z.number().int().min(0).optional(),
   url_count: z.number().int().min(0).optional(),
   has_html: z.boolean().optional(),
   ml_score_phishing: z.number().min(0).max(1).optional(),
-  top_tokens: z.array(z.string()).optional()
+  top_tokens: z.array(z.string().max(128)).max(32).optional()
 });
 
 const networkPayloadSchema = z.object({
   duration: optionalNumericField,
-  protocol_type: z.string().trim().min(1),
-  service: z.string().trim().min(1),
-  flag: z.string().trim().min(1),
+  protocol_type: metadataString,
+  service: metadataString,
+  flag: metadataString,
   src_bytes: optionalNumericField,
   dst_bytes: optionalNumericField,
   land: optionalNumericField,
@@ -99,122 +103,122 @@ const networkPayloadSchema = z.object({
   dst_host_srv_serror_rate: optionalNumericField,
   dst_host_rerror_rate: optionalNumericField,
   dst_host_srv_rerror_rate: optionalNumericField,
-  class: z.string().trim().min(1),
+  class: metadataString,
   difficulty_level: optionalNumericField,
-  source_ip: z.string().optional(),
-  destination_ip: z.string().optional()
+  source_ip: optionalMetadataString,
+  destination_ip: optionalMetadataString
 });
 
 const normalizedEventSchema = z.discriminatedUnion("eventType", [
   z.object({
-    eventId: z.string().trim().min(1),
+    eventId: metadataString,
     eventType: z.literal("sms.message.received"),
-    tenantId: z.string().trim().min(1),
+    tenantId: metadataString,
     source: sourceSchema,
     sourceFamily: sourceFamilySchema,
-    sourceAdapter: z.string().trim().min(1),
-    sourceRef: z.string().trim().min(1),
-    eventHash: z.string().trim().min(1),
+    sourceAdapter: metadataString,
+    sourceRef: metadataString,
+    eventHash: metadataString,
     occurredAt: z.string().datetime(),
     eventTimestampUtc: z.string().datetime(),
-    agentHints: z.array(z.string()).optional(),
-    localRiskSignals: z.array(z.string()).optional(),
+    agentHints: metadataArray,
+    localRiskSignals: metadataArray,
     collectorConfidence: z.number().min(0).max(1).optional(),
     payload: smsPayloadSchema
   }),
   z.object({
-    eventId: z.string().trim().min(1),
+    eventId: metadataString,
     eventType: z.literal("email.message.received"),
-    tenantId: z.string().trim().min(1),
+    tenantId: metadataString,
     source: sourceSchema,
     sourceFamily: sourceFamilySchema,
-    sourceAdapter: z.string().trim().min(1),
-    sourceRef: z.string().trim().min(1),
-    eventHash: z.string().trim().min(1),
+    sourceAdapter: metadataString,
+    sourceRef: metadataString,
+    eventHash: metadataString,
     occurredAt: z.string().datetime(),
     eventTimestampUtc: z.string().datetime(),
-    agentHints: z.array(z.string()).optional(),
-    localRiskSignals: z.array(z.string()).optional(),
+    agentHints: metadataArray,
+    localRiskSignals: metadataArray,
     collectorConfidence: z.number().min(0).max(1).optional(),
     payload: emailMessagePayloadSchema
   }),
   z.object({
-    eventId: z.string().trim().min(1),
+    eventId: metadataString,
     eventType: z.literal("text.message.received"),
-    tenantId: z.string().trim().min(1),
+    tenantId: metadataString,
     source: sourceSchema,
     sourceFamily: sourceFamilySchema,
-    sourceAdapter: z.string().trim().min(1),
-    sourceRef: z.string().trim().min(1),
-    eventHash: z.string().trim().min(1),
+    sourceAdapter: metadataString,
+    sourceRef: metadataString,
+    eventHash: metadataString,
     occurredAt: z.string().datetime(),
     eventTimestampUtc: z.string().datetime(),
-    agentHints: z.array(z.string()).optional(),
-    localRiskSignals: z.array(z.string()).optional(),
+    agentHints: metadataArray,
+    localRiskSignals: metadataArray,
     collectorConfidence: z.number().min(0).max(1).optional(),
     payload: contentPayloadSchema
   }),
   z.object({
-    eventId: z.string().trim().min(1),
+    eventId: metadataString,
     eventType: z.literal("auth.login.attempt"),
-    tenantId: z.string().trim().min(1),
+    tenantId: metadataString,
     source: sourceSchema,
     sourceFamily: sourceFamilySchema,
-    sourceAdapter: z.string().trim().min(1),
-    sourceRef: z.string().trim().min(1),
-    eventHash: z.string().trim().min(1),
+    sourceAdapter: metadataString,
+    sourceRef: metadataString,
+    eventHash: metadataString,
     occurredAt: z.string().datetime(),
     eventTimestampUtc: z.string().datetime(),
-    agentHints: z.array(z.string()).optional(),
-    localRiskSignals: z.array(z.string()).optional(),
+    agentHints: metadataArray,
+    localRiskSignals: metadataArray,
     collectorConfidence: z.number().min(0).max(1).optional(),
     payload: loginPayloadSchema
   }),
   z.object({
-    eventId: z.string().trim().min(1),
+    eventId: metadataString,
     eventType: z.literal("log.anomaly.detected"),
-    tenantId: z.string().trim().min(1),
+    tenantId: metadataString,
     source: sourceSchema,
     sourceFamily: sourceFamilySchema,
-    sourceAdapter: z.string().trim().min(1),
-    sourceRef: z.string().trim().min(1),
-    eventHash: z.string().trim().min(1),
+    sourceAdapter: metadataString,
+    sourceRef: metadataString,
+    eventHash: metadataString,
     occurredAt: z.string().datetime(),
     eventTimestampUtc: z.string().datetime(),
-    agentHints: z.array(z.string()).optional(),
-    localRiskSignals: z.array(z.string()).optional(),
+    agentHints: metadataArray,
+    localRiskSignals: metadataArray,
     collectorConfidence: z.number().min(0).max(1).optional(),
     payload: logAnomalyPayloadSchema
   }),
   z.object({
-    eventId: z.string().trim().min(1),
+    eventId: metadataString,
     eventType: z.literal("phishing.email.detected"),
-    tenantId: z.string().trim().min(1),
+    tenantId: metadataString,
     source: sourceSchema,
     sourceFamily: sourceFamilySchema,
-    sourceAdapter: z.string().trim().min(1),
-    sourceRef: z.string().trim().min(1),
-    eventHash: z.string().trim().min(1),
+    sourceAdapter: metadataString,
+    sourceRef: metadataString,
+    eventHash: metadataString,
     occurredAt: z.string().datetime(),
     eventTimestampUtc: z.string().datetime(),
-    agentHints: z.array(z.string()).optional(),
-    localRiskSignals: z.array(z.string()).optional(),
+    agentHints: metadataArray,
+    localRiskSignals: metadataArray,
     collectorConfidence: z.number().min(0).max(1).optional(),
     payload: phishingPayloadSchema
   }),
   z.object({
-    eventId: z.string().trim().min(1),
+    eventId: metadataString,
     eventType: z.literal("net.intrusion.suspected"),
-    tenantId: z.string().trim().min(1),
+    tenantId: metadataString,
     source: sourceSchema,
     sourceFamily: sourceFamilySchema,
-    sourceAdapter: z.string().trim().min(1),
-    sourceRef: z.string().trim().min(1),
-    eventHash: z.string().trim().min(1),
+    sourceAdapter: metadataString,
+    sourceRef: metadataString,
+    eventHash: metadataString,
     occurredAt: z.string().datetime(),
     eventTimestampUtc: z.string().datetime(),
-    agentHints: z.array(z.string()).optional(),
-    localRiskSignals: z.array(z.string()).optional(),
+    agentHints: metadataArray,
+    localRiskSignals: metadataArray,
     collectorConfidence: z.number().min(0).max(1).optional(),
     payload: networkPayloadSchema
   })
@@ -224,7 +228,7 @@ export const parseIncomingCyberEvent = (input: unknown): CyberEventEnvelope =>
   normalizedEventSchema.parse(normalizeIncomingEvent(input as never));
 
 export const parseIncomingCyberEventBatch = (input: unknown): CyberEventEnvelope[] =>
-  z.array(z.unknown()).transform((items) => items.map((item) => parseIncomingCyberEvent(item))).parse(input);
+  z.array(z.unknown()).max(50).transform((items) => items.map((item) => parseIncomingCyberEvent(item))).parse(input);
 
 export type ParsedCyberEvent = z.infer<typeof normalizedEventSchema>;
 

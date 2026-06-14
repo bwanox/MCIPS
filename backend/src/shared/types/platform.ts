@@ -18,10 +18,14 @@ export type ThreatLabel =
   | "network_intrusion"
   | "log_anomaly";
 export interface MitreMapping {
+  mappingType: "candidate";
   tactic: string;
   techniqueId: string;
   technique: string;
   reason: string;
+  confidence: number;
+  evidenceIds: string[];
+  officialUrl: string;
 }
 
 export interface ThreatIndicator {
@@ -64,6 +68,7 @@ export interface RiskFactor {
 
 export interface CorrelatedSignal {
   alertId: string;
+  incidentId: string;
   eventId: string;
   eventType: EventType;
   datasetFamily: DatasetFamily;
@@ -97,12 +102,24 @@ export interface AiInferenceResult {
   explanation: string;
   features: string[];
   modelUsed: string;
+  modelVersion?: string;
+  decisionSource?: "rules" | "ml" | "hybrid" | "structured" | "fallback";
+  componentScores?: {
+    rulesScore?: number;
+    mlProbability?: number;
+  };
+  evaluationStatus?: "pilot" | "validated";
   fallbackUsed: boolean;
 }
 
 export interface AiGeneratedTextResult {
   content: string;
   modelUsed: string;
+  modelVersion?: string;
+  decisionSource?: AiInferenceResult["decisionSource"];
+  componentScores?: AiInferenceResult["componentScores"];
+  evaluationStatus?: AiInferenceResult["evaluationStatus"];
+  citations?: string[];
   fallbackUsed: boolean;
 }
 
@@ -112,6 +129,10 @@ export interface IncidentReasoningResult {
   approvalRequired: boolean;
   approvalReason: string;
   modelUsed: string;
+  modelVersion?: string;
+  decisionSource?: AiInferenceResult["decisionSource"];
+  componentScores?: AiInferenceResult["componentScores"];
+  evaluationStatus?: AiInferenceResult["evaluationStatus"];
   fallbackUsed: boolean;
 }
 
@@ -172,6 +193,10 @@ export interface AlertRecord {
   payloadSummary: Record<string, unknown>;
   sanitizedPayload: Record<string, unknown>;
   modelUsed: string;
+  modelVersion?: string;
+  decisionSource?: AiInferenceResult["decisionSource"];
+  componentScores?: AiInferenceResult["componentScores"];
+  evaluationStatus?: AiInferenceResult["evaluationStatus"];
   fallbackUsed: boolean;
   timestamp: string;
   mitre?: MitreMapping[];
@@ -201,13 +226,24 @@ export interface EventLogRecord {
   detectedBank?: string;
   sanitizedPayload: Record<string, unknown>;
   modelUsed: string;
+  modelVersion?: string;
+  decisionSource?: AiInferenceResult["decisionSource"];
+  componentScores?: AiInferenceResult["componentScores"];
+  evaluationStatus?: AiInferenceResult["evaluationStatus"];
   fallbackUsed: boolean;
   timestamp: string;
 }
 
 export type IncidentStatus = "new" | "investigating" | "awaiting_approval" | "contained" | "resolved";
 export type TriagePriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-export type ActionStatus = "requested" | "approved" | "rejected" | "completed";
+export type ActionStatus =
+  | "pending"
+  | "approved"
+  | "dispatching"
+  | "completed"
+  | "failed"
+  | "simulated"
+  | "rejected";
 export type ActionExecutionMode = "notify" | "approval";
 
 export interface IncidentTimelineEntry {
@@ -225,6 +261,16 @@ export interface IncidentTimelineEntry {
   riskChange?: string;
   recommendedAction?: string;
   evidenceType?: string;
+  citationId: string;
+}
+
+export interface ActionExecutionReceipt {
+  idempotencyId: string;
+  provider: string;
+  outcome: "completed" | "failed" | "simulated";
+  executedAt: string;
+  message: string;
+  artifactPaths: string[];
 }
 
 export interface IncidentActionRecord {
@@ -240,6 +286,7 @@ export interface IncidentActionRecord {
   approvedAt?: string;
   rejectedAt?: string;
   executionMessage?: string;
+  executionReceipt?: ActionExecutionReceipt;
 }
 
 export interface AuditTrailEntry {
@@ -255,9 +302,21 @@ export interface NotificationRecord {
   channel: "email";
   createdAt: string;
   delivered: boolean;
+  deliveryStatus: "sent" | "failed" | "simulated" | "not_sent";
   subject: string;
   recipient: string;
   provider: string;
+}
+
+export interface IncidentEvidenceRecord {
+  id: string;
+  citationId: string;
+  alertId: string;
+  eventId: string;
+  title: string;
+  summary: string;
+  occurredAt: string;
+  sourceFamily: SourceFamily;
 }
 
 export interface IncidentRecord {
@@ -273,6 +332,7 @@ export interface IncidentRecord {
   recommendedActions: string[];
   correlatedSignals: CorrelatedSignal[];
   timeline: IncidentTimelineEntry[];
+  evidence: IncidentEvidenceRecord[];
   auditTrail: AuditTrailEntry[];
   actions: IncidentActionRecord[];
   notifications: NotificationRecord[];
@@ -296,9 +356,18 @@ export interface CopilotFeedItem {
 
 export interface CopilotAnswer {
   answer: string;
+  citations: string[];
   usedFallback: boolean;
   source: "local_model" | "cloud_model" | "deterministic_fallback" | "backend";
   modelUsed: string;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }
 
 export interface TimelinePoint {

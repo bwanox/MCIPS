@@ -1,4 +1,4 @@
-import type { AlertRecord } from "../../../../shared/types/platform.js";
+import type { AlertRecord, PaginatedResult } from "../../../../shared/types/platform.js";
 import type { AlertRepository } from "../../domain/alert.repository.js";
 
 export class AlertMemoryRepository implements AlertRepository {
@@ -9,8 +9,29 @@ export class AlertMemoryRepository implements AlertRepository {
     return alert;
   }
 
-  async list(): Promise<AlertRecord[]> {
-    return [...this.alerts];
+  async list(tenantId?: string): Promise<AlertRecord[]> {
+    return this.alerts.filter((alert) => !tenantId || alert.tenantId === tenantId);
+  }
+
+  async paginate(tenantId: string, page: number, limit: number): Promise<PaginatedResult<AlertRecord>> {
+    const filtered = await this.list(tenantId);
+    const offset = (page - 1) * limit;
+    return {
+      items: filtered.slice(offset, offset + limit),
+      page,
+      limit,
+      total: filtered.length,
+      totalPages: Math.ceil(filtered.length / limit)
+    };
+  }
+
+  async findRecentForCorrelation(tenantId: string, timestamp: string, windowMs: number): Promise<AlertRecord[]> {
+    const current = new Date(timestamp).getTime();
+    return this.alerts.filter(
+      (alert) =>
+        alert.tenantId === tenantId &&
+        Math.abs(new Date(alert.timestamp).getTime() - current) <= windowMs
+    );
   }
 
   async findById(id: string): Promise<AlertRecord | null> {

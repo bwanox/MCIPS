@@ -19,8 +19,15 @@ interface Options {
 
 export const useDashboardSocket = ({ onAlert, onIncident, onFeed, onStats, onSimulation, onSystem }: Options): void => {
   useEffect(() => {
+    const token = typeof window !== "undefined" ? window.localStorage.getItem("mcips_token") : null;
+    if (!token) return;
+
     const socket = getSocketClient();
-    socket.connect();
+    
+    if (!socket.connected) {
+      socket.connect();
+    }
+
     socket.on("alert:new", onAlert);
     socket.on("incident:update", onIncident);
     socket.on("copilot:feed", onFeed);
@@ -35,7 +42,9 @@ export const useDashboardSocket = ({ onAlert, onIncident, onFeed, onStats, onSim
       socket.off("stats:update", onStats);
       socket.off("simulation:status", onSimulation);
       socket.off("system:status", onSystem);
-      socket.disconnect();
+      
+      // Only disconnect if we are actually the ones who should be managing the connection lifecycle
+      // In a more complex app, we might want a global socket provider
     };
   }, [onAlert, onIncident, onFeed, onStats, onSimulation, onSystem]);
 };

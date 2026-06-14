@@ -4,7 +4,6 @@ import pytest
 from src.main import app
 from src.infrastructure.config.settings import get_settings
 from src.infrastructure.config.settings import Settings
-from src.infrastructure.llm.openrouter_client import OpenRouterClient
 
 client = TestClient(app)
 
@@ -70,27 +69,26 @@ def test_empty_content_rejected() -> None:
     assert response.status_code == 422
 
 
-def test_qwen_disabled_fallback_works() -> None:
+def test_llm_disabled_still_uses_hybrid_classifier() -> None:
     settings = get_settings()
     settings.enable_llm = False
     settings.openrouter_api_key = ""
     data = _post({"type": "TEXT", "content": "Hello team, meeting moved to tomorrow."})
-    assert data["fallback_used"] is True
-    assert data["model_used"] == "local_rules_v1"
+    assert data["fallback_used"] is False
+    assert data["model_used"] == "rules_tfidf_hybrid_v1"
+    assert data["decision_source"] == "hybrid"
+    assert data["evaluation_status"] == "pilot"
 
 
-def test_invalid_qwen_json_falls_back_to_local(monkeypatch) -> None:
+def test_cloud_reasoning_config_does_not_affect_classifier_path() -> None:
     settings = get_settings()
     settings.enable_llm = True
     settings.openrouter_api_key = "test-key"
-
-    async def fake_complete_json(self, system_prompt: str, user_prompt: str) -> str:
-        return "not-json"
-
-    monkeypatch.setattr(OpenRouterClient, "complete_json", fake_complete_json)
     data = _post({"type": "TEXT", "content": "Bonjour, votre facture est disponible."})
-    assert data["fallback_used"] is True
-    assert data["model_used"] == "local_rules_v1"
+    assert data["fallback_used"] is False
+    assert data["model_used"] == "rules_tfidf_hybrid_v1"
+    assert data["decision_source"] == "hybrid"
+    assert "ml_probability" in data["component_scores"]
 
     settings.enable_llm = False
     settings.openrouter_api_key = ""
@@ -138,6 +136,7 @@ def test_copilot_answer_returns_reasoning_metadata() -> None:
                     "occurredAt": "2025-01-15T14:23:44.998Z",
                     "sourceFamily": "messaging",
                     "severity": "critical",
+                    "citationId": "T1",
                 }
             ],
             "question": "What should we do first?",
@@ -146,6 +145,7 @@ def test_copilot_answer_returns_reasoning_metadata() -> None:
     assert response.status_code == 200
     data = response.json()
     assert "answer" in data
+    assert data["citations"] == ["T1"]
     assert "model_used" in data
     assert "fallback_used" in data
 

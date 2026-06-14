@@ -109,7 +109,10 @@ export class AiInferenceService {
           device: payload.device,
           user_agent: payload.user_agent
         },
-        { timeout: 10_000 }
+        {
+          timeout: 10_000,
+          headers: env.aiServiceToken ? { "X-Service-Token": env.aiServiceToken } : undefined
+        }
       );
 
       return {
@@ -119,6 +122,15 @@ export class AiInferenceService {
         explanation: response.data.explanation,
         features: response.data.features ?? [],
         modelUsed: response.data.model_used ?? "ai_service",
+        modelVersion: response.data.model_version,
+        decisionSource: response.data.decision_source,
+        componentScores: response.data.component_scores
+          ? {
+              rulesScore: response.data.component_scores.rules_score,
+              mlProbability: response.data.component_scores.ml_probability
+            }
+          : undefined,
+        evaluationStatus: response.data.evaluation_status,
         fallbackUsed: Boolean(response.data.fallback_used)
       };
     } catch (error) {
@@ -131,6 +143,9 @@ export class AiInferenceService {
         explanation: `AI service unavailable; event marked as suspicious by backend fallback. ${message}`,
         features: ["ai_service_unavailable"],
         modelUsed: "backend_fallback",
+        modelVersion: "1.0.0",
+        decisionSource: "fallback",
+        evaluationStatus: "pilot",
         fallbackUsed: true
       };
     }
@@ -148,7 +163,10 @@ export class AiInferenceService {
       const response = await axios.post(
         resolveAiAnalyzeUrl(env.aiServiceUrl).replace("/inference/analyze", "/incidents/summarize"),
         input,
-        { timeout: 10_000 }
+        {
+          timeout: 10_000,
+          headers: env.aiServiceToken ? { "X-Service-Token": env.aiServiceToken } : undefined
+        }
       );
 
       return typeof response.data.summary === "string"
@@ -175,7 +193,10 @@ export class AiInferenceService {
       const response = await axios.post(
         resolveAiAnalyzeUrl(env.aiServiceUrl).replace("/inference/analyze", "/incidents/reason"),
         input,
-        { timeout: 10_000 }
+        {
+          timeout: 10_000,
+          headers: env.aiServiceToken ? { "X-Service-Token": env.aiServiceToken } : undefined
+        }
       );
 
       if (typeof response.data.summary !== "string") {
@@ -205,20 +226,39 @@ export class AiInferenceService {
     summary: string;
     sourceFamilies: string[];
     recommendedActions: string[];
-    timeline: Array<{ title: string; occurredAt: string; sourceFamily: string; severity: string }>;
+    timeline: Array<{
+      title: string;
+      occurredAt: string;
+      sourceFamily: string;
+      severity: string;
+      citationId: string;
+    }>;
+    evidence: Array<{
+      citationId: string;
+      title: string;
+      summary: string;
+      occurredAt: string;
+      sourceFamily: string;
+    }>;
     question: string;
   }): Promise<AiGeneratedTextResult | null> {
     try {
       const response = await axios.post(
         resolveAiAnalyzeUrl(env.aiServiceUrl).replace("/inference/analyze", "/copilot/answer"),
         input,
-        { timeout: 10_000 }
+        {
+          timeout: 10_000,
+          headers: env.aiServiceToken ? { "X-Service-Token": env.aiServiceToken } : undefined
+        }
       );
 
       return typeof response.data.answer === "string"
         ? {
             content: response.data.answer,
             modelUsed: response.data.model_used ?? "ai_service",
+            citations: Array.isArray(response.data.citations)
+              ? response.data.citations.filter((value: unknown): value is string => typeof value === "string")
+              : [],
             fallbackUsed: Boolean(response.data.fallback_used)
           }
         : null;

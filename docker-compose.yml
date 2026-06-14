@@ -1,0 +1,152 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - mcips
+
+  ai-service:
+    build:
+      context: ./ai-service
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      AI_PROVIDER_MODE: fallback
+      SERVICE_API_TOKEN: ${AI_SERVICE_TOKEN:?AI_SERVICE_TOKEN is required}
+      CORS_ORIGINS: http://localhost:3000,http://frontend:3000
+      THREAT_MODEL_PATH: model-artifacts/threat-classifier/model.pkl
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).read()"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - mcips
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      CLIENT_URL: http://localhost:3000
+      CLIENT_URLS: http://localhost:3000,http://127.0.0.1:3000
+      AI_SERVICE_URL: http://ai-service:8000/api/v1
+      AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:?AI_SERVICE_TOKEN is required}
+      AGENT_API_URL: http://agent:4100
+      AGENT_API_TOKEN: ${AGENT_API_TOKEN:?AGENT_API_TOKEN is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRES_IN: 8h
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?ADMIN_EMAIL is required}
+      ADMIN_TENANT_ID: ${ADMIN_TENANT_ID:?ADMIN_TENANT_ID is required}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH is required}
+      MONGODB_URI: mongodb://mongo:27017/mcips
+      USE_IN_MEMORY_DB: "false"
+      STORE_RAW_CONTENT: "false"
+      COLLECTOR_KEY_PEPPER: ${COLLECTOR_KEY_PEPPER:?COLLECTOR_KEY_PEPPER is required}
+      BOOTSTRAP_COLLECTOR_KEY: ${BOOTSTRAP_COLLECTOR_KEY:?BOOTSTRAP_COLLECTOR_KEY is required}
+      BOOTSTRAP_COLLECTOR_TENANT_ID: ${BOOTSTRAP_COLLECTOR_TENANT_ID:?BOOTSTRAP_COLLECTOR_TENANT_ID is required}
+      BOOTSTRAP_COLLECTOR_ADAPTER: ${BOOTSTRAP_COLLECTOR_ADAPTER:-go-agent}
+      RATE_LIMIT_WINDOW_MS: 60000
+      RATE_LIMIT_MAX: 120
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - mcips
+
+  agent:
+    build:
+      context: ./agent
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      AGENT_ADDR: :4100
+      BACKEND_EVENTS_URL: http://backend:4000/api/events
+      AGENT_API_TOKEN: ${AGENT_API_TOKEN:?AGENT_API_TOKEN is required}
+      COLLECTOR_API_KEY: ${BOOTSTRAP_COLLECTOR_KEY:?BOOTSTRAP_COLLECTOR_KEY is required}
+      AGENT_SMS_INBOX_PATH: /app/runtime/sms-inbox.ndjson
+      AGENT_AUTH_LOG_PATH: /app/runtime/auth-log.ndjson
+      AGENT_ARTIFACT_OUTPUT_DIR: /app/runtime/artifacts
+      AGENT_BLOCKLIST_PATH: /app/runtime/blocklist.txt
+      AGENT_DEFAULT_TENANT: ${BOOTSTRAP_COLLECTOR_TENANT_ID:?BOOTSTRAP_COLLECTOR_TENANT_ID is required}
+      AGENT_POLL_INTERVAL_MS: 1000
+      AGENT_RETRY_INTERVAL_MS: 1500
+      AGENT_QUEUE_LIMIT: 200
+    volumes:
+      - agent-runtime:/app/runtime
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4100/agent/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - mcips
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:4000}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+      NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:4000}
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/login').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - mcips
+
+volumes:
+  mongo-data:
+  agent-runtime:
+
+networks:
+  mcips:
+    driver: bridge

@@ -22,6 +22,12 @@ export const connectDatabase = async (): Promise<DatabaseState> => {
 
     return { connected: true, mode: "mongo" };
   } catch (error) {
+    if (env.nodeEnv === "production") {
+      throw new Error(
+        `MongoDB connection failed in production: ${error instanceof Error ? error.message : "Unknown database error"}`
+      );
+    }
+
     return {
       connected: false,
       mode: "memory",

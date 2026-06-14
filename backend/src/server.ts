@@ -11,7 +11,7 @@ const bootstrap = async (): Promise<void> => {
 
   httpServer.on("request", app);
 
-  io.emit("system:status", {
+  io.to(`tenant:${env.adminTenantId}`).emit("system:status", {
     backend: "online",
     ai: env.aiServiceUrl,
     agent: env.agentApiUrl,

@@ -15,12 +15,12 @@ class EventType(str, Enum):
 
 class AnalyzeRequest(BaseModel):
     type: EventType
-    content: str = Field(..., min_length=1)
-    source: str | None = None
-    ip_address: str | None = None
-    country: str | None = None
-    device: str | None = None
-    user_agent: str | None = None
+    content: str = Field(..., min_length=1, max_length=10_000)
+    source: str | None = Field(default=None, max_length=128)
+    ip_address: str | None = Field(default=None, max_length=128)
+    country: str | None = Field(default=None, max_length=128)
+    device: str | None = Field(default=None, max_length=128)
+    user_agent: str | None = Field(default=None, max_length=128)
 
     @field_validator("content")
     @classmethod
@@ -37,4 +37,8 @@ class AnalyzeResponse(BaseModel):
     explanation: str
     features: list[str]
     model_used: str
+    model_version: str
+    decision_source: str
+    component_scores: dict[str, float]
+    evaluation_status: str
     fallback_used: bool

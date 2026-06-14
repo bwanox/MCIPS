@@ -17,6 +17,7 @@ export interface AgentActionCommand {
 
 export interface AgentActionResult {
   accepted: boolean;
+  outcome: "completed" | "failed" | "simulated";
   message: string;
   provider: string;
   artifactPaths?: string[];
@@ -60,16 +61,23 @@ export class AgentClientService {
 
       const payload = (await response.json()) as Partial<AgentActionResult>;
       return {
-        accepted: payload.accepted ?? true,
+        accepted: payload.accepted ?? false,
+        outcome:
+          payload.outcome === "completed" || payload.outcome === "simulated"
+            ? payload.outcome
+            : payload.accepted
+              ? "simulated"
+              : "failed",
         message: payload.message ?? "Action accepted by agent",
         provider: payload.provider ?? "go_agent",
         artifactPaths: payload.artifactPaths ?? []
       };
     } catch (error) {
       return {
-        accepted: true,
-        message: `Agent unavailable; action recorded in simulation mode. ${error instanceof Error ? error.message : ""}`.trim(),
-        provider: "simulation",
+        accepted: false,
+        outcome: "failed",
+        message: `Agent unavailable; action was not executed. ${error instanceof Error ? error.message : ""}`.trim(),
+        provider: "unavailable",
         artifactPaths: []
       };
     }

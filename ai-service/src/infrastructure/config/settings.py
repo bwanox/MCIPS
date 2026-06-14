@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     request_timeout_seconds: int = 12
     inference_logging_enabled: bool = False
     openrouter_api_url: str = "https://openrouter.ai/api/v1/chat/completions"
+    threat_model_path: str = "model-artifacts/threat-classifier/model.pkl"
+    service_api_token: str = ""
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     @field_validator("openrouter_model")
     @classmethod
@@ -29,6 +32,12 @@ class Settings(BaseSettings):
         if normalized and not normalized.endswith(":free"):
             raise ValueError("OPENROUTER_MODEL must be a free OpenRouter model ending with ':free'")
         return normalized
+
+    @model_validator(mode="after")
+    def validate_production_secrets(self) -> "Settings":
+        if self.app_env.lower() == "production" and len(self.service_api_token) < 32:
+            raise ValueError("SERVICE_API_TOKEN must be at least 32 characters in production")
+        return self
 
     model_config = SettingsConfigDict(
         env_file=".env",

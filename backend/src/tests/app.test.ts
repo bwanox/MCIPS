@@ -1,4 +1,6 @@
 import bcrypt from "bcryptjs";
+import type { Express } from "express";
+import jwt from "jsonwebtoken";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,11 +11,30 @@ vi.mock("axios", () => ({
 }));
 
 describe("MCIPS backend", () => {
+  const collectorKey = "test-collector-key";
+
+  const loginAsAdmin = async (app: Express): Promise<string> => {
+    const response = await request(app).post("/api/auth/login").send({
+      email: "admin@mcips.local",
+      password: "admin123"
+    });
+
+    expect(response.status).toBe(200);
+    return response.body.token as string;
+  };
+
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
     process.env.USE_IN_MEMORY_DB = "true";
     process.env.ADMIN_EMAIL = "admin@mcips.local";
+    process.env.ADMIN_TENANT_ID = "tenant-demo";
+    process.env.JWT_SECRET = "test-jwt-secret-with-at-least-32-characters";
+    process.env.COLLECTOR_KEY_PEPPER = "test-collector-pepper-with-at-least-32-characters";
+    process.env.BOOTSTRAP_COLLECTOR_KEY = collectorKey;
+    process.env.BOOTSTRAP_COLLECTOR_TENANT_ID = "tenant-demo";
+    process.env.BOOTSTRAP_COLLECTOR_ADAPTER = "go-agent";
+    process.env.AGENT_API_TOKEN = "test-agent-token-with-at-least-32-characters";
   });
 
   it("returns health metadata", async () => {
@@ -46,12 +67,16 @@ describe("MCIPS backend", () => {
 
     const { createApp } = await import("../app.js");
     const { app } = await createApp();
+    const token = await loginAsAdmin(app);
 
-    const response = await request(app).post("/api/events").send({
-      type: "EMAIL",
-      source: "manual",
-      content: "Contact john@bank.com and use OTP 123456 to unlock account 123456789012"
-    });
+    const response = await request(app)
+      .post("/api/events")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        type: "EMAIL",
+        source: "manual",
+        content: "Contact john@bank.com and use OTP 123456 to unlock account 123456789012"
+      });
 
     expect(response.status).toBe(201);
     expect(response.body.label).toBe("phishing");
@@ -78,12 +103,16 @@ describe("MCIPS backend", () => {
 
     const { createApp } = await import("../app.js");
     const { app } = await createApp();
+    const token = await loginAsAdmin(app);
 
-    const response = await request(app).post("/api/events").send({
-      type: "SMS",
-      source: "manual",
-      content: "Votre compte CIH est bloque. Cliquez ici maintenant."
-    });
+    const response = await request(app)
+      .post("/api/events")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        type: "SMS",
+        source: "manual",
+        content: "Votre compte CIH est bloque. Cliquez ici maintenant."
+      });
 
     expect(response.status).toBe(201);
     expect(response.body.eventType).toBe("sms.message.received");
@@ -108,20 +137,23 @@ describe("MCIPS backend", () => {
     const { createApp } = await import("../app.js");
     const { app } = await createApp();
 
-    const response = await request(app).post("/api/events").send({
-      event_id: "uuid-001",
-      event_type: "sms.message.received",
-      tenant_id: "tenant-acme-corp",
-      event_timestamp_utc: "2025-01-15T14:23:44.998Z",
-      source: "manual",
-      payload: {
-        content: "Your account is blocked, click https://example.test now"
-      }
-    });
+    const response = await request(app)
+      .post("/api/events")
+      .set("X-Collector-Key", collectorKey)
+      .send({
+        event_id: "uuid-001",
+        event_type: "sms.message.received",
+        tenant_id: "tenant-acme-corp",
+        event_timestamp_utc: "2025-01-15T14:23:44.998Z",
+        source: "manual",
+        payload: {
+          content: "Your account is blocked, click https://example.test now"
+        }
+      });
 
     expect(response.status).toBe(201);
     expect(response.body.eventId).toBe("uuid-001");
-    expect(response.body.tenantId).toBe("tenant-acme-corp");
+    expect(response.body.tenantId).toBe("tenant-demo");
     expect(response.body.eventType).toBe("sms.message.received");
   });
 
@@ -132,22 +164,26 @@ describe("MCIPS backend", () => {
 
     const { createApp } = await import("../app.js");
     const { app } = await createApp();
+    const token = await loginAsAdmin(app);
 
-    const response = await request(app).post("/api/events").send({
-      event_type: "net.intrusion.suspected",
-      source: "dataset",
-      payload: {
-        protocol_type: "tcp",
-        service: "http",
-        flag: "SF",
-        class: "neptune",
-        difficulty_level: 15,
-        num_failed_logins: 5,
-        root_shell: 1,
-        num_compromised: 1,
-        serror_rate: 0.8
-      }
-    });
+    const response = await request(app)
+      .post("/api/events")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        event_type: "net.intrusion.suspected",
+        source: "dataset",
+        payload: {
+          protocol_type: "tcp",
+          service: "http",
+          flag: "SF",
+          class: "neptune",
+          difficulty_level: 15,
+          num_failed_logins: 5,
+          root_shell: 1,
+          num_compromised: 1,
+          serror_rate: 0.8
+        }
+      });
 
     expect(response.status).toBe(201);
     expect(response.body.label).toBe("network_intrusion");
@@ -161,19 +197,23 @@ describe("MCIPS backend", () => {
     process.env.ADMIN_PASSWORD_HASH = await bcrypt.hash("admin123", 10);
     const { createApp } = await import("../app.js");
     const { app } = await createApp();
+    const token = await loginAsAdmin(app);
 
-    const response = await request(app).post("/api/events").send({
-      event_type: "log.anomaly.detected",
-      source: "dataset",
-      payload: {
-        timestamp: "2025-01-15T14:23:44.998Z",
-        log_level: "ERROR",
-        component: "auth-service",
-        message: "Failed login threshold exceeded for user admin@example.com",
-        anomaly_score: 0.87,
-        is_anomaly: 1
-      }
-    });
+    const response = await request(app)
+      .post("/api/events")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        event_type: "log.anomaly.detected",
+        source: "dataset",
+        payload: {
+          timestamp: "2025-01-15T14:23:44.998Z",
+          log_level: "ERROR",
+          component: "auth-service",
+          message: "Failed login threshold exceeded for user admin@example.com",
+          anomaly_score: 0.87,
+          is_anomaly: 1
+        }
+      });
 
     expect(response.status).toBe(201);
     expect(response.body.label).toBe("log_anomaly");
@@ -185,29 +225,27 @@ describe("MCIPS backend", () => {
     process.env.ADMIN_PASSWORD_HASH = await bcrypt.hash("admin123", 10);
     const { createApp } = await import("../app.js");
     const { app } = await createApp();
+    const token = await loginAsAdmin(app);
 
-    const ingestResponse = await request(app).post("/api/events").send({
-      event_type: "phishing.email.detected",
-      source: "dataset",
-      payload: {
-        email_text: "Verify your account at https://bank.example immediately",
-        label: "Phishing Email",
-        label_binary: 1,
-        ml_score_phishing: 0.96,
-        url_count: 3,
-        has_html: true
-      }
-    });
+    const ingestResponse = await request(app)
+      .post("/api/events")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        event_type: "phishing.email.detected",
+        source: "dataset",
+        payload: {
+          email_text: "Verify your account at https://bank.example immediately",
+          label: "Phishing Email",
+          label_binary: 1,
+          ml_score_phishing: 0.96,
+          url_count: 3,
+          has_html: true
+        }
+      });
 
     expect(ingestResponse.status).toBe(201);
     expect(ingestResponse.body.label).toBe("phishing");
     expect(ingestResponse.body.risk).toBe("HIGH");
-
-    const login = await request(app).post("/api/auth/login").send({
-      email: "admin@mcips.local",
-      password: "admin123"
-    });
-    const token = login.body.token;
 
     const alertsResponse = await request(app)
       .get("/api/alerts")
@@ -227,12 +265,16 @@ describe("MCIPS backend", () => {
 
     const { createApp } = await import("../app.js");
     const { app } = await createApp();
+    const token = await loginAsAdmin(app);
 
-    const response = await request(app).post("/api/events").send({
-      type: "TEXT",
-      source: "external",
-      content: "Suspicious text"
-    });
+    const response = await request(app)
+      .post("/api/events")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        type: "TEXT",
+        source: "external",
+        content: "Suspicious text"
+      });
 
     expect(response.status).toBe(201);
     expect(response.body.label).toBe("suspicious");
@@ -247,6 +289,101 @@ describe("MCIPS backend", () => {
     const response = await request(app).get("/api/alerts");
 
     expect(response.status).toBe(401);
+  });
+
+  it("rejects event ingestion without a valid user or collector credential", async () => {
+    process.env.ADMIN_PASSWORD_HASH = await bcrypt.hash("admin123", 10);
+    const { createApp } = await import("../app.js");
+    const { app } = await createApp();
+
+    const unauthenticated = await request(app).post("/api/events").send({
+      type: "TEXT",
+      content: "Suspicious text"
+    });
+    const invalidCollector = await request(app)
+      .post("/api/events")
+      .set("X-Collector-Key", "wrong-key")
+      .send({
+        type: "TEXT",
+        content: "Suspicious text"
+      });
+
+    expect(unauthenticated.status).toBe(401);
+    expect(invalidCollector.status).toBe(401);
+  });
+
+  it("filters alerts by token tenant and paginates the tenant result set", async () => {
+    process.env.ADMIN_PASSWORD_HASH = await bcrypt.hash("admin123", 10);
+    const axios = await import("axios");
+    vi.mocked(axios.default.post).mockResolvedValue({
+      data: {
+        label: "phishing",
+        confidence: 0.9,
+        risk: "HIGH",
+        explanation: "Credential lure",
+        features: ["credential_request"],
+        model_used: "hybrid_ai_v1",
+        fallback_used: false
+      }
+    });
+
+    const { createApp } = await import("../app.js");
+    const { app } = await createApp();
+    const token = await loginAsAdmin(app);
+
+    for (const index of [1, 2, 3]) {
+      const response = await request(app)
+        .post("/api/events")
+        .set("X-Collector-Key", collectorKey)
+        .send({
+          event_type: "sms.message.received",
+          source_ref: `tenant-page-${index}`,
+          payload: {
+            content: `CIH Bank blocked account message ${index}. Verify password now.`
+          }
+        });
+      expect(response.status).toBe(201);
+    }
+
+    const firstPage = await request(app)
+      .get("/api/alerts?page=1&limit=2")
+      .set("Authorization", `Bearer ${token}`);
+    const secondPage = await request(app)
+      .get("/api/alerts?page=2&limit=2")
+      .set("Authorization", `Bearer ${token}`);
+    const otherTenantToken = jwt.sign(
+      { email: "other@example.com", tenantId: "tenant-other", role: "admin" },
+      process.env.JWT_SECRET as string
+    );
+    const otherTenant = await request(app)
+      .get("/api/alerts")
+      .set("Authorization", `Bearer ${otherTenantToken}`);
+
+    expect(firstPage.status).toBe(200);
+    expect(firstPage.body.items).toHaveLength(2);
+    expect(firstPage.body.total).toBe(3);
+    expect(firstPage.body.totalPages).toBe(2);
+    expect(secondPage.body.items).toHaveLength(1);
+    expect(otherTenant.status).toBe(200);
+    expect(otherTenant.body.items).toHaveLength(0);
+  });
+
+  it("enforces natural-language content limits", async () => {
+    process.env.ADMIN_PASSWORD_HASH = await bcrypt.hash("admin123", 10);
+    const { createApp } = await import("../app.js");
+    const { app } = await createApp();
+    const token = await loginAsAdmin(app);
+
+    const response = await request(app)
+      .post("/api/events")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        type: "TEXT",
+        content: "x".repeat(10_001)
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe("Validation failed");
   });
 
   it("aggregates stats after running the named phishing-login scenario", async () => {
@@ -332,11 +469,7 @@ describe("MCIPS backend", () => {
 
     const { createApp } = await import("../app.js");
     const { app } = await createApp();
-    const login = await request(app).post("/api/auth/login").send({
-      email: "admin@mcips.local",
-      password: "admin123"
-    });
-    const token = login.body.token;
+    const token = await loginAsAdmin(app);
 
     const firstRun = await request(app).post("/api/simulation/scenarios/phishing-login").set("Authorization", `Bearer ${token}`);
     const secondRun = await request(app).post("/api/simulation/scenarios/phishing-login").set("Authorization", `Bearer ${token}`);
@@ -349,8 +482,8 @@ describe("MCIPS backend", () => {
     expect(secondRun.status).toBe(201);
     expect(firstRun.body.alerts).toHaveLength(2);
     expect(secondRun.body.alerts).toHaveLength(2);
-    expect(alertsResponse.body).toHaveLength(4);
-    expect(alertsResponse.body.every((alert: { datasetFamily: string }) => ["sms_threat", "auth_security"].includes(alert.datasetFamily))).toBe(
+    expect(alertsResponse.body.items).toHaveLength(4);
+    expect(alertsResponse.body.items.every((alert: { datasetFamily: string }) => ["sms_threat", "auth_security"].includes(alert.datasetFamily))).toBe(
       true
     );
   });
@@ -384,28 +517,35 @@ describe("MCIPS backend", () => {
 
     const { createApp } = await import("../app.js");
     const { app } = await createApp();
+    const token = await loginAsAdmin(app);
 
-    const phishingResponse = await request(app).post("/api/events").send({
-      event_type: "sms.message.received",
-      tenant_id: "tenant-correlation",
-      source: "manual",
-      payload: {
-        content: "Votre compte CIH est bloque. Confirmez OTP 492911 sur https://cih-secure.example"
-      }
-    });
+    const phishingResponse = await request(app)
+      .post("/api/events")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        event_type: "sms.message.received",
+        tenant_id: "tenant-correlation",
+        source: "manual",
+        payload: {
+          content: "Votre compte CIH est bloque. Confirmez OTP 492911 sur https://cih-secure.example"
+        }
+      });
 
-    const loginResponse = await request(app).post("/api/events").send({
-      event_type: "auth.login.attempt",
-      tenant_id: "tenant-correlation",
-      source: "manual",
-      payload: {
-        content: "Suspicious login attempt",
-        ip_address: "192.0.2.44",
-        country: "unknown",
-        device: "unknown device",
-        user_agent: "UnknownBot/1.0"
-      }
-    });
+    const loginResponse = await request(app)
+      .post("/api/events")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        event_type: "auth.login.attempt",
+        tenant_id: "tenant-correlation",
+        source: "manual",
+        payload: {
+          content: "Suspicious login attempt",
+          ip_address: "192.0.2.44",
+          country: "unknown",
+          device: "unknown device",
+          user_agent: "UnknownBot/1.0"
+        }
+      });
 
     expect(phishingResponse.status).toBe(201);
     expect(loginResponse.status).toBe(201);
@@ -413,12 +553,6 @@ describe("MCIPS backend", () => {
     expect(loginResponse.body.severity).toBe("critical");
     expect(loginResponse.body.explainableRisk.finalScore).toBeGreaterThanOrEqual(75);
     expect(loginResponse.body.recommendedActions.length).toBeGreaterThan(0);
-
-    const login = await request(app).post("/api/auth/login").send({
-      email: "admin@mcips.local",
-      password: "admin123"
-    });
-    const token = login.body.token;
 
     const exportResponse = await request(app)
       .get(`/api/alerts/${loginResponse.body.id}/export`)
@@ -478,49 +612,56 @@ describe("MCIPS backend", () => {
 
     const { createApp } = await import("../app.js");
     const { app } = await createApp();
+    const token = await loginAsAdmin(app);
 
-    const ingestResponse = await request(app).post("/api/events").send({
-      event_type: "sms.message.received",
-      tenant_id: "tenant-incidents",
-      source: "manual",
-      payload: {
-        content: "Votre compte CIH est bloque. Confirmez OTP 492911 sur https://cih-secure.example"
-      }
-    });
+    const ingestResponse = await request(app)
+      .post("/api/events")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        event_type: "sms.message.received",
+        tenant_id: "tenant-incidents",
+        source: "manual",
+        payload: {
+          content: "Votre compte CIH est bloque. Confirmez OTP 492911 sur https://cih-secure.example"
+        }
+      });
 
-    const loginResponse = await request(app).post("/api/events").send({
-      event_type: "auth.login.attempt",
-      tenant_id: "tenant-incidents",
-      source: "manual",
-      payload: {
-        content: "Suspicious login attempt",
-        ip_address: "192.0.2.44",
-        country: "unknown",
-        device: "unknown device",
-        user_agent: "UnknownBot/1.0"
-      }
-    });
-
-    const login = await request(app).post("/api/auth/login").send({
-      email: "admin@mcips.local",
-      password: "admin123"
-    });
-    const token = login.body.token;
+    const loginResponse = await request(app)
+      .post("/api/events")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        event_type: "auth.login.attempt",
+        tenant_id: "tenant-incidents",
+        source: "manual",
+        payload: {
+          content: "Suspicious login attempt",
+          ip_address: "192.0.2.44",
+          country: "unknown",
+          device: "unknown device",
+          user_agent: "UnknownBot/1.0"
+        }
+      });
 
     const incidentsResponse = await request(app)
       .get("/api/incidents")
       .set("Authorization", `Bearer ${token}`);
 
     expect(incidentsResponse.status).toBe(200);
-    expect(incidentsResponse.body[0].status).toBe("awaiting_approval");
-    expect(Array.isArray(incidentsResponse.body[0].actions)).toBe(true);
-    expect(incidentsResponse.body[0].actions.filter((action: { requiresApproval: boolean }) => action.requiresApproval)).toHaveLength(1);
+    expect(incidentsResponse.body.items[0].status).toBe("awaiting_approval");
+    expect(Array.isArray(incidentsResponse.body.items[0].actions)).toBe(true);
+    expect(incidentsResponse.body.items[0].actions.filter((action: { requiresApproval: boolean }) => action.requiresApproval)).toHaveLength(1);
+    expect(incidentsResponse.body.items[0].timeline[0].citationId).toBe("T1");
+    expect(incidentsResponse.body.items[0].evidence[0].citationId).toBe("E1");
+    expect(incidentsResponse.body.items[0].notifications.every((notification: { deliveryStatus: string; delivered: boolean }) =>
+      ["sent", "failed", "simulated", "not_sent"].includes(notification.deliveryStatus) &&
+      (notification.deliveryStatus === "simulated" ? notification.delivered === false : true)
+    )).toBe(true);
 
     const questionResponse = await request(app)
       .post("/api/copilot/query")
       .set("Authorization", `Bearer ${token}`)
       .send({
-        incidentId: incidentsResponse.body[0].id,
+        incidentId: incidentsResponse.body.items[0].id,
         question: "What should we do first?"
       });
 
@@ -528,6 +669,17 @@ describe("MCIPS backend", () => {
     expect(loginResponse.status).toBe(201);
     expect(questionResponse.status).toBe(200);
     expect(questionResponse.body.answer.toLowerCase()).toContain("password reset");
+
+    const approvalAction = incidentsResponse.body.items[0].actions.find((action: { requiresApproval: boolean }) => action.requiresApproval);
+    const approvalResponse = await request(app)
+      .post(`/api/incidents/${incidentsResponse.body.items[0].id}/actions/${approvalAction.id}/approve`)
+      .set("Authorization", `Bearer ${token}`);
+    const executedAction = approvalResponse.body.actions.find((action: { id: string }) => action.id === approvalAction.id);
+
+    expect(approvalResponse.status).toBe(200);
+    expect(executedAction.status).toBe("failed");
+    expect(executedAction.executionReceipt.outcome).toBe("failed");
+    expect(executedAction.executionReceipt.provider).toBe("unavailable");
   });
 
   it("deduplicates repeated source events by source adapter and source reference", async () => {
@@ -567,8 +719,8 @@ describe("MCIPS backend", () => {
       }
     };
 
-    const first = await request(app).post("/api/events").send(payload);
-    const second = await request(app).post("/api/events").send(payload);
+    const first = await request(app).post("/api/events").set("X-Collector-Key", collectorKey).send(payload);
+    const second = await request(app).post("/api/events").set("X-Collector-Key", collectorKey).send(payload);
 
     expect(first.status).toBe(201);
     expect(second.status).toBe(201);

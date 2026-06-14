@@ -289,6 +289,7 @@ export const enrichAlertWithIncidentCorrelation = ({
     .slice(0, 3)
     .map<CorrelatedSignal>((alert) => ({
       alertId: alert.id,
+      incidentId: alert.incidentId,
       eventId: alert.eventId,
       eventType: alert.eventType,
       datasetFamily: alert.datasetFamily,
@@ -303,7 +304,13 @@ export const enrichAlertWithIncidentCorrelation = ({
   // Extract and enrich threat intelligence indicators
   const indicators = extractAndEnrichIndicators(
     (event.payload as Record<string, unknown>) ?? {},
-    sanitized.sanitizedPreview ?? "",
+    [
+      event.payload.content,
+      event.payload.email_text,
+      event.payload["Email Text"]
+    ]
+      .filter((value): value is string => typeof value === "string")
+      .join(" "),
     sanitized.detectedBank ?? ""
   );
 
@@ -319,7 +326,9 @@ export const enrichAlertWithIncidentCorrelation = ({
   });
 
   const finalRisk = riskFromScore(explainableRisk.finalScore);
-  const incidentId = correlationDetected ? matchingSignals[0]?.alertId ?? `incident-${draftAlert.eventId}` : `incident-${draftAlert.eventId}`;
+  const incidentId = correlationDetected
+    ? matchingSignals[0]?.incidentId ?? `incident-${draftAlert.eventId}`
+    : `incident-${draftAlert.eventId}`;
   const recommendedActions = buildRecommendedActions(event, matchingSignals, correlationDetected);
   const title = buildIncidentTitle(draftAlert, matchingSignals, event);
   const incidentSummary = buildIncidentSummary(draftAlert, event, sanitized, matchingSignals, explainableRisk);

@@ -1,57 +1,50 @@
 "use client";
 
-import { Bot, CircleDot, Cpu, Database, LogOut, Server, ShieldCheck } from "lucide-react";
+import { CircleDot, LogOut } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { authService } from "../../services/auth-service";
 import { useDashboardWorkspace } from "../mission-control/workspace-context";
 
-const routeTitles: Record<string, { title: string; mode: string }> = {
-  "/dashboard": { title: "Copilot Command Center", mode: "active response" },
-  "/dashboard/copilot": { title: "AI Desk", mode: "conversation" },
-  "/dashboard/incidents": { title: "Case Board", mode: "investigation" },
-  "/dashboard/inbox": { title: "Threat Inbox", mode: "message triage" },
-  "/dashboard/operations": { title: "Response Console", mode: "execution" },
-  "/dashboard/demo-lab": { title: "Scenario Runner", mode: "demo" }
+const routeTitles: Record<string, { title: string; description: string }> = {
+  "/dashboard": { title: "Security overview", description: "Your current risk posture and priority work." },
+  "/dashboard/copilot": { title: "Security copilot", description: "Investigate incidents with contextual AI guidance." },
+  "/dashboard/incidents": { title: "Incidents", description: "Review evidence, timelines, and recommended actions." },
+  "/dashboard/inbox": { title: "Threat inbox", description: "Triage suspicious messages and incoming signals." },
+  "/dashboard/operations": { title: "Operations", description: "Approve and track response actions." },
+  "/dashboard/demo-lab": { title: "Demo lab", description: "Run scenarios and submit controlled test events." }
 };
 
 export const Topbar = () => {
   const pathname = usePathname();
   const router = useRouter();
-  const { email, systemHealth, aiFallbackActive } = useDashboardWorkspace();
+  const { email, systemHealth } = useDashboardWorkspace();
   const route = pathname && pathname in routeTitles ? routeTitles[pathname as keyof typeof routeTitles] : routeTitles["/dashboard"];
+  const servicesOnline = Boolean(
+    systemHealth?.backend === "ok" &&
+      systemHealth?.databaseConnected &&
+      systemHealth?.agent?.online
+  );
 
   return (
     <header className="cyber-topbar">
       <div className="topbar-title">
-        <span>{route.mode}</span>
         <h1>{route.title}</h1>
+        <p>{route.description}</p>
       </div>
 
       <div className="system-strip" aria-label="System status">
-        <span className="system-pill system-pill-ok">
-          <Server size={15} />
-          {systemHealth?.backend ?? "backend"}
-        </span>
-        <span className={`system-pill ${systemHealth?.agent?.online ? "system-pill-ok" : "system-pill-warn"}`}>
-          <Cpu size={15} />
-          {systemHealth?.agent?.online ? "agent online" : "agent standby"}
-        </span>
-        <span className={`system-pill ${systemHealth?.databaseConnected ? "system-pill-ok" : "system-pill-danger"}`}>
-          <Database size={15} />
-          {systemHealth?.databaseConnected ? "data connected" : "data degraded"}
-        </span>
-        <span className={`system-pill ${aiFallbackActive ? "system-pill-warn" : "system-pill-info"}`}>
-          <Bot size={15} />
-          {aiFallbackActive ? "fallback AI" : "AI routed"}
+        <span className={`system-pill ${servicesOnline ? "system-pill-ok" : "system-pill-warn"}`}>
+          <CircleDot size={12} />
+          {servicesOnline ? "All systems operational" : "Service attention needed"}
         </span>
       </div>
 
       <div className="operator-bar">
         <span className="operator-id">
-          <CircleDot size={12} />
-          {email ?? "operator"}
+          {(email ?? "operator").slice(0, 1).toUpperCase()}
         </span>
+        <span className="operator-email">{email ?? "operator"}</span>
         <button
           className="icon-action"
           type="button"
@@ -63,9 +56,8 @@ export const Topbar = () => {
           }}
         >
           <LogOut size={17} />
-          <span>Logout</span>
+          <span>Sign out</span>
         </button>
-        <ShieldCheck size={18} className="topbar-shield" />
       </div>
     </header>
   );

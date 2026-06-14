@@ -152,6 +152,10 @@ export const alertEngine = (
     payloadSummary: buildPayloadSummary(payload, sanitized),
     sanitizedPayload: sanitized.sanitizedPayload,
     modelUsed: inference.modelUsed,
+    modelVersion: inference.modelVersion,
+    decisionSource: inference.decisionSource,
+    componentScores: inference.componentScores,
+    evaluationStatus: inference.evaluationStatus,
     fallbackUsed: inference.fallbackUsed,
     timestamp: payload.eventTimestampUtc
   };

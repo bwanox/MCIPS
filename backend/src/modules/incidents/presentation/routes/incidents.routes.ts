@@ -6,6 +6,8 @@ import type { AuthService } from "../../../auth/application/services/auth.servic
 import { authMiddleware } from "../../../../shared/presentation/auth-middleware.js";
 import { asyncHandler } from "../../../../shared/utils/async-handler.js";
 import { HttpError } from "../../../../shared/presentation/error-middleware.js";
+import type { AuthenticatedRequest } from "../../../../shared/presentation/auth-middleware.js";
+import { paginationQuerySchema } from "../../../../shared/presentation/pagination.js";
 
 const statusSchema = z.object({
   status: z.enum(["new", "investigating", "awaiting_approval", "contained", "resolved"])
@@ -18,16 +20,17 @@ export const createIncidentRoutes = (incidentService: IncidentService, authServi
 
   router.get(
     "/",
-    asyncHandler(async (_request, response) => {
-      response.json(await incidentService.list());
+    asyncHandler(async (request: AuthenticatedRequest, response) => {
+      const query = paginationQuerySchema.parse(request.query);
+      response.json(await incidentService.paginate(request.user!.tenantId, query.page, query.limit));
     })
   );
 
   router.get(
     "/:id",
-    asyncHandler(async (request, response) => {
+    asyncHandler(async (request: AuthenticatedRequest, response) => {
       const incident = await incidentService.findById(getParam(request.params.id));
-      if (!incident) {
+      if (!incident || incident.tenantId !== request.user!.tenantId) {
         throw new HttpError(404, "Incident not found");
       }
 
@@ -37,9 +40,9 @@ export const createIncidentRoutes = (incidentService: IncidentService, authServi
 
   router.get(
     "/:id/timeline",
-    asyncHandler(async (request, response) => {
+    asyncHandler(async (request: AuthenticatedRequest, response) => {
       const incident = await incidentService.findById(getParam(request.params.id));
-      if (!incident) {
+      if (!incident || incident.tenantId !== request.user!.tenantId) {
         throw new HttpError(404, "Incident not found");
       }
 
@@ -49,8 +52,12 @@ export const createIncidentRoutes = (incidentService: IncidentService, authServi
 
   router.patch(
     "/:id/status",
-    asyncHandler(async (request, response) => {
+    asyncHandler(async (request: AuthenticatedRequest, response) => {
       const payload = statusSchema.parse(request.body);
+      const existing = await incidentService.findById(getParam(request.params.id));
+      if (!existing || existing.tenantId !== request.user!.tenantId) {
+        throw new HttpError(404, "Incident not found");
+      }
       const incident = await incidentService.updateStatus(getParam(request.params.id), payload.status);
       if (!incident) {
         throw new HttpError(404, "Incident not found");
@@ -62,7 +69,11 @@ export const createIncidentRoutes = (incidentService: IncidentService, authServi
 
   router.post(
     "/:id/actions/:actionId/approve",
-    asyncHandler(async (request, response) => {
+    asyncHandler(async (request: AuthenticatedRequest, response) => {
+      const existing = await incidentService.findById(getParam(request.params.id));
+      if (!existing || existing.tenantId !== request.user!.tenantId) {
+        throw new HttpError(404, "Incident not found");
+      }
       const incident = await incidentService.approveAction(getParam(request.params.id), getParam(request.params.actionId));
       if (!incident) {
         throw new HttpError(404, "Incident not found");
@@ -74,7 +85,11 @@ export const createIncidentRoutes = (incidentService: IncidentService, authServi
 
   router.post(
     "/:id/actions/:actionId/reject",
-    asyncHandler(async (request, response) => {
+    asyncHandler(async (request: AuthenticatedRequest, response) => {
+      const existing = await incidentService.findById(getParam(request.params.id));
+      if (!existing || existing.tenantId !== request.user!.tenantId) {
+        throw new HttpError(404, "Incident not found");
+      }
       const incident = await incidentService.rejectAction(getParam(request.params.id), getParam(request.params.actionId));
       if (!incident) {
         throw new HttpError(404, "Incident not found");

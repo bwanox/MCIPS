@@ -1,9 +1,9 @@
 import { apiClient } from "../lib/api-client";
-import type { Incident } from "../types/incident";
+import type { Incident, PaginatedResult } from "../types/incident";
 
 export const incidentsService = {
-  async list(): Promise<Incident[]> {
-    const response = await apiClient.get<Incident[]>("/api/incidents");
+  async list(page = 1, limit = 20): Promise<PaginatedResult<Incident>> {
+    const response = await apiClient.get<PaginatedResult<Incident>>("/api/incidents", { params: { page, limit } });
     return response.data;
   },
   async get(id: string): Promise<Incident> {

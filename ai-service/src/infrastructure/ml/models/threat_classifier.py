@@ -45,7 +45,7 @@ class ThreatClassifierModel:
         texts = [d.text for d in data]
         
         X_train, X_test, y_train, y_test = train_test_split(
-            texts, labels, test_size=0.2, random_state=42
+            texts, labels, test_size=0.2, random_state=42, stratify=labels
         )
         
         X_train_vec = self.vectorizer.fit_transform(X_train)
@@ -67,6 +67,16 @@ class ThreatClassifierModel:
         
         self.is_trained = True
         return self.metrics
+
+    def fit(self, data: list[PhishingThreat]) -> None:
+        """Fit the model on all supplied examples for an inference artifact."""
+        if not data:
+            raise ValueError("Training data cannot be empty")
+        texts = [item.text for item in data]
+        labels = [item.label for item in data]
+        matrix = self.vectorizer.fit_transform(texts)
+        self.model.fit(matrix, labels)
+        self.is_trained = True
 
     def predict(self, data: PhishingThreat) -> dict[str, Any]:
         """Predict threat label and confidence"""
@@ -92,6 +102,9 @@ class ThreatClassifierModel:
 
     def save(self, filepath: str) -> None:
         """Save model and vectorizer to disk"""
+        from pathlib import Path
+
+        Path(filepath).parent.mkdir(parents=True, exist_ok=True)
         with open(filepath.replace(".pkl", "_vectorizer.pkl"), "wb") as f:
             pickle.dump(self.vectorizer, f)
         with open(filepath, "wb") as f:
@@ -108,4 +121,3 @@ class ThreatClassifierModel:
 
 # Export for backward compatibility
 ThreatClassifierService = ThreatClassifierModel
-

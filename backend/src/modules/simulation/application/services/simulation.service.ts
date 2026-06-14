@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import type { AppSocketServer } from "../../../../shared/config/socket.js";
+import { env } from "../../../../shared/config/env.js";
 import type { AlertRecord, EventSource } from "../../../../shared/types/platform.js";
 import type { IngestionPipelineService } from "../../../events/application/services/ingestion-pipeline.service.js";
 import type { CyberEventEnvelope, SourceFamily } from "../../../../types/cyberEvent.js";
@@ -100,6 +101,12 @@ export class SimulationService {
 
   constructor(private readonly pipeline: IngestionPipelineService, private readonly io?: AppSocketServer) {}
 
+  private emitStatus(): void {
+    const room = this.io?.to(`tenant:${env.adminTenantId}`);
+    room?.emit("simulation:status", this.getStatus());
+    room?.emit("system:status", { simulation: this.getStatus() });
+  }
+
   getStatus(): SimulationStatus {
     return { ...this.status };
   }
@@ -107,10 +114,7 @@ export class SimulationService {
   async runOnce(): Promise<AlertRecord> {
     const result = await this.runScenario("phishing-login");
     const alert = result.alerts[result.alerts.length - 1]!;
-    this.io?.emit("simulation:status", this.getStatus());
-    this.io?.emit("system:status", {
-      simulation: this.getStatus()
-    });
+    this.emitStatus();
     return alert;
   }
 
@@ -139,10 +143,7 @@ export class SimulationService {
     this.status.lastAlertAt = alerts[alerts.length - 1]?.timestamp;
     this.status.scenario = scenario;
 
-    this.io?.emit("simulation:status", this.getStatus());
-    this.io?.emit("system:status", {
-      simulation: this.getStatus()
-    });
+    this.emitStatus();
 
     return {
       scenario,
@@ -162,10 +163,7 @@ export class SimulationService {
     this.timer = setInterval(() => {
       void this.runScenario(this.status.scenario);
     }, intervalMs);
-    this.io?.emit("simulation:status", this.getStatus());
-    this.io?.emit("system:status", {
-      simulation: this.getStatus()
-    });
+    this.emitStatus();
     return this.getStatus();
   }
 
@@ -176,10 +174,7 @@ export class SimulationService {
     }
 
     this.status.running = false;
-    this.io?.emit("simulation:status", this.getStatus());
-    this.io?.emit("system:status", {
-      simulation: this.getStatus()
-    });
+    this.emitStatus();
     return this.getStatus();
   }
 }

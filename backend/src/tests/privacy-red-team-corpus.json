@@ -1,0 +1,50 @@
+[
+  {
+    "category": "jwt",
+    "content": "Token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature1234567890",
+    "mustContain": "[JWT]",
+    "mustNotContain": "eyJhbGci"
+  },
+  {
+    "category": "api_key",
+    "content": "Leaked key sk_live_abcdefghijklmnopqrstuvwxyz123456",
+    "mustContain": "[API_KEY]",
+    "mustNotContain": "sk_live_abcdefghijklmnopqrstuvwxyz123456"
+  },
+  {
+    "category": "moroccan_iban",
+    "content": "IBAN MA64011519000001205000534921 requires verification",
+    "mustContain": "[IBAN]",
+    "mustNotContain": "MA64011519000001205000534921"
+  },
+  {
+    "category": "rib",
+    "content": "RIB: 123456789012345678901234",
+    "mustContain": "[RIB]",
+    "mustNotContain": "123456789012345678901234"
+  },
+  {
+    "category": "ipv6",
+    "content": "Login from 2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+    "mustContain": "[IPV6]",
+    "mustNotContain": "2001:0db8:85a3"
+  },
+  {
+    "category": "defanged_url",
+    "content": "Visit hxxps://bank[.]example/path?otp=123456",
+    "mustContain": "[URL]",
+    "mustNotContain": "bank.example/path"
+  },
+  {
+    "category": "moroccan_phone",
+    "content": "Call +212 6 12 34 56 78 now",
+    "mustContain": "[PHONE]",
+    "mustNotContain": "+212 6 12 34 56 78"
+  },
+  {
+    "category": "moroccan_identity",
+    "content": "CIN AB123456 was used in this request",
+    "mustContain": "[ID]",
+    "mustNotContain": "AB123456"
+  }
+]

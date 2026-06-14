@@ -14,6 +14,7 @@ import type {
   IncidentTimelineEntry,
   IncidentReasoningResult,
   EventLogRecord,
+  PaginatedResult,
   TriagePriority
 } from "../../../../shared/types/platform.js";
 import type { EmailNotificationService } from "../../../notifications/application/services/email-notification.service.js";
@@ -91,7 +92,7 @@ export class IncidentService {
     private readonly io?: AppSocketServer
   ) {}
 
-  private buildTimelineEntry(alert: AlertRecord): IncidentTimelineEntry {
+  private buildTimelineEntry(alert: AlertRecord, position: number): IncidentTimelineEntry {
     return {
       id: randomUUID(),
       alertId: alert.id,
@@ -108,7 +109,8 @@ export class IncidentService {
         ? `+${alert.explainableRisk.correlationBonus} (Correlation Escalation)`
         : `+${alert.explainableRisk.finalScore} (Initial Discovery)`,
       recommendedAction: alert.recommendedActions[0] ?? "Analyze compromised session activity details.",
-      evidenceType: alert.eventType
+      evidenceType: alert.eventType,
+      citationId: `T${position}`
     };
   }
 
@@ -130,7 +132,7 @@ export class IncidentService {
           incidentId,
           label,
           actionKey,
-          status: "requested",
+          status: "pending",
           requiresApproval: requiresApproval(actionKey) || aiRequiresApproval,
           executionMode: requiresApproval(actionKey) || aiRequiresApproval ? "approval" : "notify",
           createdAt,
@@ -187,10 +189,15 @@ export class IncidentService {
       approvalRequired: reasoning.approvalRequired,
       approvalReason: reasoning.approvalReason
     });
-    const pendingApproval = nextActions.some((action) => action.requiresApproval && action.status === "requested");
+    const pendingApproval = nextActions.some((action) => action.requiresApproval && action.status === "pending");
     const nextStatus: IncidentStatus = pendingApproval ? "awaiting_approval" : existing?.status ?? "new";
     const reasoningSource = toProvenanceSource(reasoning.modelUsed, reasoning.fallbackUsed);
     const priorProvenance = existing?.aiProvenance ?? defaultAiProvenance();
+    const evidenceCitation = `E${(existing?.evidence.length ?? 0) + 1}`;
+    const nextMitre = (alert.mitre ?? []).map((mapping) => ({
+      ...mapping,
+      evidenceIds: [evidenceCitation]
+    }));
 
     const incident: IncidentRecord = {
       id: alert.incidentId,
@@ -203,10 +210,30 @@ export class IncidentService {
       lastSeenAt: alert.occurredAt,
       summary: reasoning.summary,
       recommendedActions,
-      correlatedSignals: alert.correlatedSignals,
-      timeline: [...(existing?.timeline ?? []), this.buildTimelineEntry(alert)].sort((left, right) =>
+      correlatedSignals: [
+        ...new Map(
+          [...(existing?.correlatedSignals ?? []), ...alert.correlatedSignals].map((signal) => [signal.alertId, signal])
+        ).values()
+      ],
+      timeline: [
+        ...(existing?.timeline ?? []),
+        this.buildTimelineEntry(alert, (existing?.timeline.length ?? 0) + 1)
+      ].sort((left, right) =>
         left.occurredAt.localeCompare(right.occurredAt)
       ),
+      evidence: [
+        ...(existing?.evidence ?? []),
+        {
+          id: randomUUID(),
+          citationId: evidenceCitation,
+          alertId: alert.id,
+          eventId: alert.eventId,
+          title: alert.title,
+          summary: alert.incidentSummary,
+          occurredAt: alert.occurredAt,
+          sourceFamily: alert.sourceFamily
+        }
+      ],
       auditTrail: [
         ...(existing?.auditTrail ?? []),
         buildAuditEntry("event_ingested", `Linked event ${alert.eventId} from ${alert.sourceAdapter}`)
@@ -228,7 +255,14 @@ export class IncidentService {
       },
       latestAlertId: alert.id,
       latestEventId: eventLog.eventId,
-      mitre: alert.mitre ?? [],
+      mitre: [
+        ...new Map(
+          [...(existing?.mitre ?? []), ...nextMitre].map((mapping) => [
+            `${mapping.techniqueId}:${mapping.evidenceIds.join(",")}`,
+            mapping
+          ])
+        ).values()
+      ],
       threatIntel: alert.threatIntel ?? [],
       graph: buildIncidentGraph(alert, alert.correlatedSignals)
     };
@@ -243,7 +277,7 @@ export class IncidentService {
     }
 
     if (saved.status === "awaiting_approval" && this.shouldSendNotification(saved, "approval_required")) {
-      const actionLabel = saved.actions.find((action) => action.status === "requested" && action.requiresApproval)?.label;
+      const actionLabel = saved.actions.find((action) => action.status === "pending" && action.requiresApproval)?.label;
       const notification = await this.emailNotificationService.sendIncidentNotification(saved, "approval_required", actionLabel);
       notifications.push(notification);
       saved.auditTrail.push(buildAuditEntry("notification_sent", `Approval required email queued for ${notification.recipient}`));
@@ -251,16 +285,22 @@ export class IncidentService {
 
     saved.notifications = notifications;
     const updated = await this.repository.update(saved);
-    this.io?.emit("incident:update", updated);
-    this.io?.emit("copilot:feed", this.toFeedItem(updated));
-    if (updated.actions.some((action) => action.status === "requested" && action.requiresApproval)) {
-      this.io?.emit("action:pending", updated.actions.filter((action) => action.status === "requested"));
+    this.io?.to(`tenant:${updated.tenantId}`).emit("incident:update", updated);
+    this.io?.to(`tenant:${updated.tenantId}`).emit("copilot:feed", this.toFeedItem(updated));
+    if (updated.actions.some((action) => action.status === "pending" && action.requiresApproval)) {
+      this.io
+        ?.to(`tenant:${updated.tenantId}`)
+        .emit("action:pending", updated.actions.filter((action) => action.status === "pending"));
     }
     return updated;
   }
 
-  async list(): Promise<IncidentRecord[]> {
-    return this.repository.list();
+  async list(tenantId?: string): Promise<IncidentRecord[]> {
+    return this.repository.list(tenantId);
+  }
+
+  async paginate(tenantId: string, page: number, limit: number): Promise<PaginatedResult<IncidentRecord>> {
+    return this.repository.paginate(tenantId, page, limit);
   }
 
   async findById(id: string): Promise<IncidentRecord | null> {
@@ -310,6 +350,12 @@ export class IncidentService {
     action.updatedAt = now;
     incident.auditTrail.push(buildAuditEntry("action_approved", `Approved action ${action.label}`));
 
+    action.status = "dispatching";
+    action.updatedAt = new Date().toISOString();
+    const dispatching = await this.repository.update(incident);
+    this.io?.to(`tenant:${incident.tenantId}`).emit("action:status", action);
+    this.io?.to(`tenant:${incident.tenantId}`).emit("incident:update", dispatching);
+
     const result = await this.agentClientService.executeAction({
       actionId: action.id,
       incidentId,
@@ -323,24 +369,32 @@ export class IncidentService {
       }
     });
 
-    action.status = "completed";
+    action.status = result.outcome;
     action.updatedAt = new Date().toISOString();
     action.executionMessage = result.artifactPaths?.length
       ? `${result.message} (${result.artifactPaths.join(", ")})`
       : result.message;
+    action.executionReceipt = {
+      idempotencyId: action.id,
+      provider: result.provider,
+      outcome: result.outcome,
+      executedAt: action.updatedAt,
+      message: result.message,
+      artifactPaths: result.artifactPaths ?? []
+    };
     incident.auditTrail.push(
       buildAuditEntry(
         "status_updated",
         result.artifactPaths?.length ? `${result.message} (${result.artifactPaths.join(", ")})` : result.message
       )
     );
-    incident.status = incident.actions.some((entry) => entry.requiresApproval && entry.status === "requested")
+    incident.status = incident.actions.some((entry) => entry.requiresApproval && entry.status === "pending")
       ? "awaiting_approval"
       : "investigating";
 
     const saved = await this.repository.update(incident);
-    this.io?.emit("action:status", action);
-    this.io?.emit("incident:update", saved);
+    this.io?.to(`tenant:${incident.tenantId}`).emit("action:status", action);
+    this.io?.to(`tenant:${incident.tenantId}`).emit("incident:update", saved);
     return saved;
   }
 
@@ -360,19 +414,26 @@ export class IncidentService {
     action.rejectedAt = now;
     action.updatedAt = now;
     incident.auditTrail.push(buildAuditEntry("action_rejected", `Rejected action ${action.label}`));
-    incident.status = incident.actions.some((entry) => entry.requiresApproval && entry.status === "requested")
+    incident.status = incident.actions.some((entry) => entry.requiresApproval && entry.status === "pending")
       ? "awaiting_approval"
       : "investigating";
 
     const saved = await this.repository.update(incident);
-    this.io?.emit("action:status", action);
-    this.io?.emit("incident:update", saved);
+    this.io?.to(`tenant:${incident.tenantId}`).emit("action:status", action);
+    this.io?.to(`tenant:${incident.tenantId}`).emit("incident:update", saved);
     return saved;
   }
 
-  async listFeed(): Promise<CopilotFeedItem[]> {
-    const incidents = await this.repository.list();
-    return incidents.slice(0, 20).map((incident) => this.toFeedItem(incident));
+  async listFeed(
+    tenantId: string,
+    page: number,
+    limit: number
+  ): Promise<PaginatedResult<CopilotFeedItem>> {
+    const result = await this.repository.paginate(tenantId, page, limit);
+    return {
+      ...result,
+      items: result.items.map((incident) => this.toFeedItem(incident))
+    };
   }
 
   toFeedItem(incident: IncidentRecord): CopilotFeedItem {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowRight, Check, ShieldCheck } from "lucide-react";
 
 import { authService } from "../../services/auth-service";
 
@@ -16,40 +17,34 @@ export default function LoginPage() {
     <main className="login-shell">
       <section className="login-panel">
         <div className="login-story">
-          <div>
-            <p className="eyebrow">MCIPS SecureLens</p>
-            <h1>Privacy-first cyber defense for smaller teams.</h1>
+          <div className="login-brand">
+            <span className="login-brand-mark">
+              <ShieldCheck size={22} />
+            </span>
+            <div>
+              <strong>SecureLens</strong>
+              <span>by MCIPS</span>
+            </div>
+          </div>
+          <div className="login-story-copy">
+            <p className="eyebrow">Security operations, simplified</p>
+            <h1>Clarity for every security decision.</h1>
             <p>
-              MCIPS SecureLens helps SMEs and small institutions without dedicated cybersecurity teams detect phishing
-              lures, suspicious logins, and network compromise signals without exposing sensitive personal data.
+              Detect threats, understand the evidence, and respond with confidence from one privacy-first workspace.
             </p>
           </div>
-          <div className="login-story-grid">
-            <div className="login-story-card">
-              <span>3-signal MVP</span>
-              <strong>Phishing messages, suspicious logins, and network anomaly detection.</strong>
-            </div>
-            <div className="login-story-card">
-              <span>Privacy-by-design</span>
-              <strong>Sanitize before storage, AI explanation, and dashboard display.</strong>
-            </div>
-            <div className="login-story-card">
-              <span>Explainable scoring</span>
-              <strong>Visible risk factors show why an incident was escalated.</strong>
-            </div>
-            <div className="login-story-card">
-              <span>Morocco relevance</span>
-              <strong>Built around fake bank SMS, OTP lures, and institutional login traps.</strong>
-            </div>
+          <div className="login-benefits">
+            <span><Check size={16} /> Explainable AI decisions</span>
+            <span><Check size={16} /> Privacy-safe evidence</span>
+            <span><Check size={16} /> Human-controlled response</span>
           </div>
         </div>
         <div className="login-form-wrap">
           <div>
-            <p className="eyebrow">Operator access</p>
-            <h2>Sign in to MCIPS SecureLens</h2>
+            <p className="eyebrow">Welcome back</p>
+            <h2>Sign in to your workspace</h2>
             <p className="panel-subtext">
-              The development workspace uses prefilled local credentials so you can go directly into the competition
-              demo flow.
+              Monitor incidents and coordinate your response team.
             </p>
           </div>
           <form
@@ -79,13 +74,11 @@ export default function LoginPage() {
               <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" required />
             </label>
             {error ? <p className="error-text">{error}</p> : null}
-            <div className="status-pill status-pill-light">
-              <span className="eyebrow">Default local credentials</span>
-              <strong>admin@mcips.local / admin123</strong>
-            </div>
-            <button type="submit" disabled={submitting}>
+            <button className="login-submit" type="submit" disabled={submitting}>
               {submitting ? "Signing in..." : "Open SecureLens Dashboard"}
+              {!submitting ? <ArrowRight size={18} /> : null}
             </button>
+            <p className="login-helper">Local demo access is prefilled for this environment.</p>
           </form>
         </div>
       </section>

@@ -1,4 +1,4 @@
-import type { EventLogRecord } from "../../../../shared/types/platform.js";
+import type { EventLogRecord, PaginatedResult } from "../../../../shared/types/platform.js";
 import type { EventDuplicateLookup, EventLogRepository } from "../../domain/event-log.repository.js";
 import { EventLogModel } from "../models/event-log.model.js";
 
@@ -8,8 +8,23 @@ export class EventLogMongoRepository implements EventLogRepository {
     return eventLog;
   }
 
-  async list(): Promise<EventLogRecord[]> {
-    return (await EventLogModel.find().sort({ timestamp: -1 }).lean()) as unknown as EventLogRecord[];
+  async list(tenantId?: string): Promise<EventLogRecord[]> {
+    return (await EventLogModel.find(tenantId ? { tenantId } : {}).sort({ timestamp: -1 }).lean()) as unknown as EventLogRecord[];
+  }
+
+  async paginate(tenantId: string, page: number, limit: number): Promise<PaginatedResult<EventLogRecord>> {
+    const query = { tenantId };
+    const [items, total] = await Promise.all([
+      EventLogModel.find(query).sort({ timestamp: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      EventLogModel.countDocuments(query)
+    ]);
+    return {
+      items: items as unknown as EventLogRecord[],
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    };
   }
 
   async findDuplicate(criteria: EventDuplicateLookup): Promise<EventLogRecord | null> {

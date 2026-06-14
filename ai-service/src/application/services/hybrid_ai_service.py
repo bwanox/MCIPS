@@ -1,17 +1,11 @@
 from __future__ import annotations
 
-import json
-from json import JSONDecodeError
-from typing import Any
-
-import httpx
-
+from src.application.services.ml_threat_classifier_service import MlThreatClassifierService
 from src.application.services.threat_classifier_service import ThreatClassifierService
 from src.domain.entities.inference_result import InferenceResult
 from src.domain.entities.threat_signal import ThreatSignal
-from src.domain.enums.risk_level import RiskLevel
 from src.domain.enums.threat_label import ThreatLabel
-from src.domain.interfaces.llm_gateway import LLMGateway
+from src.application.use_cases.score_threat import ScoreThreatUseCase
 from src.infrastructure.config.settings import Settings
 
 
@@ -20,66 +14,59 @@ class HybridAIService:
         self,
         classifier: ThreatClassifierService,
         settings: Settings,
-        llm_gateway: LLMGateway | None = None,
+        ml_classifier: MlThreatClassifierService,
     ) -> None:
         self._classifier = classifier
-        self._settings = settings
-        self._llm_gateway = llm_gateway
+        self._ml_classifier = ml_classifier
 
     async def analyze(self, signal: ThreatSignal) -> InferenceResult:
         local_result = self._classifier.classify(signal)
-        if not self._should_use_llm():
+        ml_probability = self._ml_classifier.phishing_probability(signal.content or "")
+        if ml_probability is None:
             return local_result
 
-        try:
-            llm_response = await self._llm_gateway.analyze(signal)  # type: ignore[union-attr]
-            llm_result = self._parse_llm_result(llm_response)
-        except (httpx.HTTPError, TimeoutError, JSONDecodeError, KeyError, TypeError, ValueError):
-            return local_result
-
-        merged_features = list(dict.fromkeys(local_result.features + llm_result.features))
-
-        if local_result.risk is RiskLevel.HIGH and llm_result.label is ThreatLabel.SAFE:
-            local_result.features = merged_features
-            return local_result
-
-        return InferenceResult(
-            label=llm_result.label,
-            confidence=llm_result.confidence,
-            risk=llm_result.risk,
-            explanation=llm_result.explanation,
-            features=merged_features,
-            model_used=self._settings.openrouter_model,
-            fallback_used=False,
+        rules_probability = local_result.component_scores.get("rules_score", 0.0)
+        combined_probability = min(1.0, (0.6 * rules_probability) + (0.4 * ml_probability))
+        label = self._hybrid_label(local_result.label, combined_probability, ml_probability)
+        score = round(combined_probability * 100)
+        risk = ScoreThreatUseCase.risk_from_score(score)
+        confidence = round(
+            max(combined_probability, 1.0 - combined_probability),
+            4,
         )
-
-    def _should_use_llm(self) -> bool:
-        return (
-            self._settings.enable_llm
-            and bool(self._settings.openrouter_api_key)
-            and self._llm_gateway is not None
-        )
-
-    def _parse_llm_result(self, payload: str) -> InferenceResult:
-        data: dict[str, Any] = json.loads(payload)
-        label = ThreatLabel(data["label"])
-        risk = RiskLevel(data["risk"])
-        confidence = float(data["confidence"])
-        if not 0.0 <= confidence <= 1.0:
-            raise ValueError("confidence out of range")
-        explanation = str(data["explanation"]).strip()
-        if not explanation:
-            raise ValueError("explanation required")
-        raw_features = data.get("features", [])
-        if not isinstance(raw_features, list) or not all(isinstance(item, str) for item in raw_features):
-            raise ValueError("features must be a list of strings")
-        features = [item.strip() for item in raw_features if item.strip()]
         return InferenceResult(
             label=label,
-            confidence=round(confidence, 2),
+            confidence=confidence,
             risk=risk,
-            explanation=explanation,
-            features=features,
-            model_used=self._settings.openrouter_model,
+            explanation=(
+                f"{local_result.explanation} Pilot TF-IDF phishing probability "
+                f"{ml_probability:.2f}; hybrid score {combined_probability:.2f}."
+            ),
+            features=list(dict.fromkeys(local_result.features + ["tfidf_phishing_probability"])),
+            model_used="rules_tfidf_hybrid_v1",
+            model_version="1.0.0-pilot",
+            decision_source="hybrid",
+            component_scores={
+                "rules_score": round(rules_probability, 4),
+                "ml_probability": round(ml_probability, 4),
+                "hybrid_score": round(combined_probability, 4),
+            },
+            evaluation_status="pilot",
             fallback_used=False,
         )
+
+    @staticmethod
+    def _hybrid_label(
+        rules_label: ThreatLabel,
+        combined_probability: float,
+        ml_probability: float,
+    ) -> ThreatLabel:
+        if rules_label in {ThreatLabel.TOXIC, ThreatLabel.SCAM}:
+            return rules_label
+        if rules_label is ThreatLabel.PHISHING:
+            return ThreatLabel.PHISHING
+        if ml_probability >= 0.70 or combined_probability >= 0.62:
+            return ThreatLabel.PHISHING
+        if combined_probability >= 0.38:
+            return ThreatLabel.SUSPICIOUS
+        return ThreatLabel.SAFE

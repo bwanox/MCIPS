@@ -14,6 +14,7 @@ const incidentSchema = new Schema(
     recommendedActions: [{ type: String, required: true }],
     correlatedSignals: [{ type: Schema.Types.Mixed, required: true }],
     timeline: [{ type: Schema.Types.Mixed, required: true }],
+    evidence: [{ type: Schema.Types.Mixed, required: true }],
     auditTrail: [{ type: Schema.Types.Mixed, required: true }],
     actions: [{ type: Schema.Types.Mixed, required: true }],
     notifications: [{ type: Schema.Types.Mixed, required: true }],

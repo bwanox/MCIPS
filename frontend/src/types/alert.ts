@@ -29,6 +29,7 @@ export interface RiskFactor {
 
 export interface CorrelatedSignal {
   alertId: string;
+  incidentId: string;
   eventId: string;
   eventType: CyberEventType;
   datasetFamily: DatasetFamily;
@@ -80,13 +81,25 @@ export interface Alert {
   payloadSummary: Record<string, unknown>;
   sanitizedPayload: Record<string, unknown>;
   modelUsed: string;
+  modelVersion?: string;
+  decisionSource?: "rules" | "ml" | "hybrid" | "structured" | "fallback";
+  componentScores?: {
+    rulesScore?: number;
+    mlProbability?: number;
+    hybridScore?: number;
+  };
+  evaluationStatus?: "pilot" | "validated";
   fallbackUsed: boolean;
   timestamp: string;
   mitre?: Array<{
+    mappingType: "candidate";
     tactic: string;
     techniqueId: string;
     technique: string;
     reason: string;
+    confidence: number;
+    evidenceIds: string[];
+    officialUrl: string;
   }>;
   threatIntel?: Array<{
     type: "url" | "domain" | "ip" | "sender" | "brand";

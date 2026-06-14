@@ -27,7 +27,8 @@ export class EmailNotificationService {
       ].join("\n")
     };
 
-    let delivered = true;
+    let delivered = false;
+    let deliveryStatus: NotificationRecord["deliveryStatus"] = "simulated";
     let provider = "dry_run";
 
     if (env.mailWebhookUrl) {
@@ -43,8 +44,11 @@ export class EmailNotificationService {
           throw new Error(`mail webhook returned ${response.status}`);
         }
         provider = "webhook";
+        delivered = true;
+        deliveryStatus = "sent";
       } catch {
         delivered = false;
+        deliveryStatus = "failed";
         provider = "webhook_failed";
       }
     }
@@ -55,6 +59,7 @@ export class EmailNotificationService {
       channel: "email",
       createdAt: new Date().toISOString(),
       delivered,
+      deliveryStatus,
       subject,
       recipient: env.adminEmail,
       provider

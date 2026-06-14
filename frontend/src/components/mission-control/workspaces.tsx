@@ -199,6 +199,9 @@ const CopilotConsole = ({ focused = false }: { focused?: boolean }) => {
                 AI · {copilotAnswer.source} · {copilotAnswer.modelUsed}
               </span>
               <p>{copilotAnswer.answer}</p>
+              {copilotAnswer.citations.length ? (
+                <small>Sources: {copilotAnswer.citations.join(", ")}</small>
+              ) : null}
             </article>
           </>
         ) : (
@@ -247,7 +250,7 @@ const ActionDock = ({ incident }: { incident?: Incident | null }) => {
           <ShieldCheck size={16} />
           Action dock
         </span>
-        <small>{actions.filter((action) => action.status === "requested").length} pending</small>
+        <small>{actions.filter((action) => action.status === "pending").length} pending</small>
       </div>
       <div className="action-list-os">
         {actions.length ? (
@@ -260,7 +263,7 @@ const ActionDock = ({ incident }: { incident?: Incident | null }) => {
                   {action.executionMessage ? ` · ${truncateText(action.executionMessage, 52)}` : ""}
                 </small>
               </div>
-              {incident && action.status === "requested" && action.requiresApproval ? (
+              {incident && action.status === "pending" && action.requiresApproval ? (
                 <div className="icon-button-row">
                   <button className="square-action square-action-ok" type="button" title="Approve" onClick={() => void approveAction(incident.id, action.id)}>
                     <Check size={16} />
@@ -334,37 +337,27 @@ const IncidentTimeline = ({ incident }: { incident: Incident | null }) => (
     <div className="timeline-list">
       {incident?.timeline.length ? (
         incident.timeline.map((entry) => (
-          <article key={entry.id} className="timeline-item" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "14px", marginBottom: "14px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-              <span className="timeline-time" style={{ color: "var(--tone-muted)", fontSize: "11px" }}>{formatTime(entry.occurredAt)} ({entry.occurredAt ? new Date(entry.occurredAt).toLocaleDateString() : ""})</span>
-              {entry.riskChange && (
-                <span style={{ fontSize: "11px", background: "rgba(220, 38, 38, 0.15)", color: "#ef4444", padding: "2px 6px", borderRadius: "4px", fontWeight: "bold" }}>
-                  {entry.riskChange}
-                </span>
-              )}
-            </div>
-            <div>
-              <strong style={{ fontSize: "14px", display: "block", color: "var(--color-text-primary, #fff)" }}>{entry.title}</strong>
-              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", margin: "6px 0", fontSize: "11px", color: "var(--tone-muted)" }}>
-                <span style={{ background: "rgba(255,255,255,0.08)", padding: "1px 6px", borderRadius: "3px" }}>
-                  Adapter: {entry.sourceAdapter}
-                </span>
-                <span style={{ background: "rgba(255,255,255,0.08)", padding: "1px 6px", borderRadius: "3px" }}>
-                  Type: {entry.evidenceType ?? entry.eventType}
-                </span>
-                {entry.mitreTags && entry.mitreTags.map(tag => (
-                  <span key={tag} style={{ background: "rgba(16, 185, 129, 0.15)", color: "#10b981", padding: "1px 6px", borderRadius: "3px", fontWeight: "600" }}>
-                    MITRE: {tag}
-                  </span>
-                ))}
+          <article key={entry.id} className="timeline-item">
+            <div className="timeline-marker" />
+            <div className="timeline-content">
+              <div className="timeline-meta">
+                <span>{formatTime(entry.occurredAt)}</span>
+                <span>{entry.occurredAt ? new Date(entry.occurredAt).toLocaleDateString() : ""}</span>
+                {entry.riskChange ? <span className="risk-change">{entry.riskChange}</span> : null}
               </div>
-              <p style={{ margin: "6px 0", fontSize: "13px", color: "var(--color-text-secondary, #ccc)" }}>{entry.summary}</p>
-              {entry.recommendedAction && (
-                <div style={{ marginTop: "8px", padding: "8px 12px", background: "rgba(59, 130, 246, 0.08)", borderLeft: "3px solid #3b82f6", borderRadius: "4px" }}>
-                  <small style={{ display: "block", color: "#3b82f6", fontWeight: "600", textTransform: "uppercase", fontSize: "10px", letterSpacing: "0.5px" }}>Recommended next action</small>
-                  <span style={{ fontSize: "12px", color: "#93c5fd" }}>{entry.recommendedAction}</span>
+              <strong>{entry.title}</strong>
+              <p>{entry.summary}</p>
+              <div className="timeline-tags">
+                <span>{entry.sourceAdapter}</span>
+                <span>{entry.evidenceType ?? entry.eventType}</span>
+                {entry.mitreTags?.map((tag) => <span key={tag}>MITRE {tag}</span>)}
+              </div>
+              {entry.recommendedAction ? (
+                <div className="timeline-recommendation">
+                  <small>Recommended next action</small>
+                  <span>{entry.recommendedAction}</span>
                 </div>
-              )}
+              ) : null}
             </div>
           </article>
         ))
@@ -376,21 +369,23 @@ const IncidentTimeline = ({ incident }: { incident: Incident | null }) => (
 );
 
 const EvidencePanel = ({ alert, incident }: { alert: Alert | null; incident: Incident | null }) => {
-  const score = alert?.explainableRisk?.finalScore ?? (incident?.severity === 'critical' ? 92 : incident?.severity === 'high' ? 82 : incident?.severity === 'medium' ? 56 : 24);
-
+  const score =
+    alert?.explainableRisk?.finalScore ??
+    (incident?.severity === "critical" ? 92 : incident?.severity === "high" ? 82 : incident?.severity === "medium" ? 56 : 24);
   const mitreList = alert?.mitre ?? incident?.mitre ?? [];
   const intelList = alert?.threatIntel ?? incident?.threatIntel ?? [];
-  
-  // Custom fallback to build evidenceChain locally if it's missing from DB
-  const dynamicBank = alert?.detectedBank ?? (incident as any)?.detectedBank ?? "Brand";
-  const evidenceChain = incident?.graph?.evidenceChain ?? (alert ? (alert.correlationDetected ? [
-    `SMS -> suspicious URL -> ${dynamicBank} impersonation`,
-    "SMS -> same tenant -> suspicious login two minutes later",
-    "Login -> unknown device -> high-risk account compromise"
-  ] : [
-    `SMS -> suspicious URL -> ${dynamicBank} impersonation`
-  ]) : []);
-
+  const dynamicBank = alert?.detectedBank ?? "Brand";
+  const evidenceChain =
+    incident?.graph?.evidenceChain ??
+    (alert
+      ? alert.correlationDetected
+        ? [
+            `Message to suspicious URL with ${dynamicBank} impersonation`,
+            "Same tenant produced a suspicious login shortly afterward",
+            "Unknown access context increased account-compromise risk"
+          ]
+        : [`Message to suspicious URL with ${dynamicBank} impersonation`]
+      : []);
   const factors = alert?.explainableRisk?.factors ?? [];
 
   const handleExportJson = () => {
@@ -416,128 +411,100 @@ const EvidencePanel = ({ alert, incident }: { alert: Alert | null; incident: Inc
   };
 
   return (
-    <section className="os-panel evidence-panel" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+    <section className="os-panel evidence-panel">
       <div className="panel-titlebar">
         <span>
           <FileJson size={16} />
-          Evidence & Intel
+          Evidence
         </span>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <small>{score}/100</small>
-          {(alert || incident) && (
-            <button
-              id="btn-export-risk-json"
-              onClick={handleExportJson}
-              title="Export risk report as JSON"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "4px",
-                fontSize: "10px",
-                fontWeight: 600,
-                background: "rgba(59,130,246,0.12)",
-                border: "1px solid rgba(59,130,246,0.3)",
-                borderRadius: "4px",
-                color: "#93c5fd",
-                padding: "2px 7px",
-                cursor: "pointer",
-                letterSpacing: "0.04em"
-              }}
-            >
+        {alert || incident ? (
+          <button className="compact-action" id="btn-export-risk-json" onClick={handleExportJson} title="Export risk report as JSON">
               <Download size={10} />
-              JSON
-            </button>
-          )}
-        </div>
+              Export
+          </button>
+        ) : null}
       </div>
-      {(alert || incident) ? (
-        <div className="evidence-stack" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          {/* Risk meter */}
-          <div className="risk-meter" style={{ height: "6px", background: "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden" }}>
-            <span style={{ display: "block", height: "100%", width: `${score}%`, background: score >= 75 ? "#ef4444" : score >= 40 ? "#f59e0b" : "#10b981" }} />
+      {alert || incident ? (
+        <div className="evidence-stack">
+          <div className="risk-summary">
+            <div>
+              <span>Risk score</span>
+              <strong>{score}</strong>
+              <small>out of 100</small>
+            </div>
+            <SeverityPill severity={alert?.severity ?? incident?.severity ?? "low"} />
+          </div>
+          <div className="risk-meter">
+            <span style={{ width: `${score}%` }} />
           </div>
 
-          {/* Alert preview */}
-          {alert && (
-            <div className="evidence-block" style={{ padding: "8px", background: "rgba(255,255,255,0.04)", borderRadius: "4px" }}>
-              <strong style={{ fontSize: "12px", display: "block" }}>{truncateText(alert.sanitizedPreview, 96)}</strong>
-              <small style={{ display: "block", color: "var(--tone-muted)", fontSize: "10px", marginTop: "2px" }}>
-                {alert.sourceAdapter} · {alert.modelUsed} · {alert.fallbackUsed ? "fallback" : "model"}
-              </small>
+          {alert ? (
+            <div className="evidence-block">
+              <span className="section-label">Sanitized preview</span>
+              <strong>{truncateText(alert.sanitizedPreview, 140)}</strong>
+              <small>{alert.sourceAdapter} · {alert.modelUsed} · {alert.fallbackUsed ? "fallback" : "model"}</small>
             </div>
-          )}
+          ) : null}
 
-          {/* Compact Evidence Chain List */}
-          {evidenceChain && evidenceChain.length > 0 && (
-            <div style={{ marginTop: "4px" }}>
-              <span style={{ fontSize: "11px", fontWeight: "bold", textTransform: "uppercase", color: "var(--tone-muted)", display: "block", marginBottom: "4px" }}>Incident Evidence Chain</span>
-              <div style={{ background: "rgba(59, 130, 246, 0.05)", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: "4px", padding: "6px 10px" }}>
-                {evidenceChain.map((chain, index) => (
-                  <div key={index} style={{ fontSize: "11px", padding: "3px 0", color: "#93c5fd", display: "flex", alignItems: "center", gap: "4px" }}>
-                    <ChevronRight size={10} style={{ color: "#3b82f6" }} />
+          {evidenceChain.length ? (
+            <div className="evidence-section">
+              <span className="section-label">Evidence chain</span>
+              <div className="evidence-chain">
+                {evidenceChain.map((chain) => (
+                  <div key={chain}>
+                    <ChevronRight size={14} />
                     <span>{chain}</span>
                   </div>
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* Risk factors */}
-          {factors && factors.length > 0 && (
-            <div style={{ marginTop: "4px" }}>
-              <span style={{ fontSize: "11px", fontWeight: "bold", textTransform: "uppercase", color: "var(--tone-muted)", display: "block", marginBottom: "4px" }}>Contributing Factors</span>
-              {factors.map((factor) => (
-                <div key={factor.key} className="factor-row" style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", padding: "3px 0", borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                  <span style={{ color: "var(--color-text-secondary, #ccc)" }}>{factor.label}</span>
-                  <strong style={{ color: factor.weight > 0 ? "#f87171" : "#34d399" }}>+{factor.weight}</strong>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* MITRE Mapping */}
-          {mitreList && mitreList.length > 0 && (
-            <div style={{ marginTop: "4px" }}>
-              <span style={{ fontSize: "11px", fontWeight: "bold", textTransform: "uppercase", color: "var(--tone-muted)", display: "block", marginBottom: "4px" }}>MITRE ATT&CK Mapping</span>
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                {mitreList.map((mapping, idx) => (
-                  <div key={idx} style={{ background: "rgba(16, 185, 129, 0.04)", border: "1px solid rgba(16, 185, 129, 0.15)", borderRadius: "4px", padding: "6px 8px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <strong style={{ color: "#10b981", fontSize: "12px" }}>{mapping.techniqueId} · {mapping.technique}</strong>
-                      <span style={{ fontSize: "9px", background: "rgba(16, 185, 129, 0.15)", color: "#10b981", padding: "1px 4px", borderRadius: "3px", fontWeight: "bold" }}>{mapping.tactic}</span>
-                    </div>
-                    <small style={{ display: "block", color: "var(--tone-muted)", fontSize: "10px", marginTop: "3px" }}>{mapping.reason}</small>
+          {factors.length ? (
+            <div className="evidence-section">
+              <span className="section-label">Contributing factors</span>
+              <div className="factor-list">
+                {factors.slice(0, 5).map((factor) => (
+                  <div key={factor.key} className="factor-row">
+                    <span>{factor.label}</span>
+                    <strong>+{factor.weight}</strong>
                   </div>
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* Threat Intel Indicators */}
-          {intelList && intelList.length > 0 && (
-            <div style={{ marginTop: "4px" }}>
-              <span style={{ fontSize: "11px", fontWeight: "bold", textTransform: "uppercase", color: "var(--tone-muted)", display: "block", marginBottom: "4px" }}>Threat Intelligence Feed</span>
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                {intelList.map((intel, idx) => {
-                  const repTone = intel.reputation === "malicious" ? "#f87171" : intel.reputation === "suspicious" ? "#fbbf24" : "#34d399";
-                  const repBg = intel.reputation === "malicious" ? "rgba(239, 68, 68, 0.1)" : intel.reputation === "suspicious" ? "rgba(245, 158, 11, 0.1)" : "rgba(16, 185, 129, 0.1)";
-                  return (
-                    <div key={idx} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "4px", padding: "6px 8px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: "12px", fontWeight: "600", wordBreak: "break-all", maxWidth: "70%" }}>{intel.value}</span>
-                        <span style={{ fontSize: "9px", background: repBg, color: repTone, padding: "1px 4px", borderRadius: "3px", fontWeight: "bold" }}>{intel.reputation.toUpperCase()}</span>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "var(--tone-muted)", marginTop: "4px" }}>
-                        <span>Source: {intel.source}</span>
-                        <span>Confidence: {intel.confidence}%</span>
-                      </div>
-                      <small style={{ display: "block", color: "var(--tone-muted)", fontSize: "9px", marginTop: "2px" }}>Category: {intel.category}</small>
-                    </div>
-                  );
-                })}
+          {mitreList.length ? (
+            <div className="evidence-section">
+              <span className="section-label">MITRE ATT&CK</span>
+              <div className="mitre-list">
+                {mitreList.slice(0, 4).map((mapping) => (
+                  <div key={`${mapping.techniqueId}-${mapping.tactic}`}>
+                    <strong>{mapping.techniqueId}</strong>
+                    <span>{mapping.technique}</span>
+                    <small>{mapping.tactic}</small>
+                  </div>
+                ))}
               </div>
             </div>
-          )}
+          ) : null}
+
+          {intelList.length ? (
+            <div className="evidence-section">
+              <span className="section-label">Threat intelligence</span>
+              <div className="intel-list">
+                {intelList.slice(0, 3).map((intel) => (
+                  <div key={`${intel.type}-${intel.value}`}>
+                    <div>
+                      <strong>{intel.value}</strong>
+                      <small>{intel.source} · {intel.category}</small>
+                    </div>
+                    <span className={`reputation reputation-${intel.reputation}`}>{intel.reputation}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : (
         <EmptyPanel label="No evidence" />
@@ -621,24 +588,59 @@ const ThreatInboxRows = () => {
 };
 
 export const MissionOverviewView = () => {
-  const { selectedIncident, alerts } = useDashboardWorkspace();
-
-  const selectedAlert = selectedIncident
-    ? (alerts.find(a => a.id === selectedIncident.latestAlertId) || alerts.find(a => a.incidentId === selectedIncident.id) || null)
-    : null;
+  const { selectedIncident, incidents, alerts, summary } = useDashboardWorkspace();
+  const pendingActions = incidents.reduce(
+    (total, incident) => total + incident.actions.filter((action) => action.status === "pending").length,
+    0
+  );
 
   return (
-    <div className="command-grid">
-      <div className="command-left">
-        <CaseQueue limit={6} />
-        <SignalStream limit={7} />
+    <div className="overview-stack">
+      <section className="overview-hero">
+        <div className="overview-copy">
+          <span className="overview-kicker">Today&apos;s posture</span>
+          <h2>{selectedIncident ? "Priority incident needs review." : "Your environment is ready."}</h2>
+          <p>
+            {selectedIncident
+              ? truncateText(selectedIncident.summary, 190)
+              : "SecureLens is monitoring incoming signals and will surface the work that needs your attention."}
+          </p>
+          <div className="overview-actions">
+            <Link className="primary-link" href="/dashboard/incidents">
+              Review incidents
+              <ArrowRight size={16} />
+            </Link>
+            <Link className="secondary-link" href="/dashboard/copilot">Ask copilot</Link>
+          </div>
+        </div>
+        <div className="overview-metrics">
+          <div className="overview-metric">
+            <span>Open incidents</span>
+            <strong>{incidents.length}</strong>
+            <small>{summary?.correlatedIncidentsCount ?? 0} correlated</small>
+          </div>
+          <div className="overview-metric">
+            <span>High risk alerts</span>
+            <strong>{summary?.highRiskAlerts ?? 0}</strong>
+            <small>{summary?.totalAlerts ?? alerts.length} total signals</small>
+          </div>
+          <div className="overview-metric overview-metric-accent">
+            <span>Pending actions</span>
+            <strong>{pendingActions}</strong>
+            <small>Human approval required</small>
+          </div>
+        </div>
+      </section>
+
+      <div className="overview-primary-grid">
+        <CopilotConsole />
+        <div className="overview-rail">
+          <CaseQueue limit={5} />
+          <ActionDock incident={selectedIncident} />
+        </div>
       </div>
-      <CopilotConsole />
-      <div className="command-right">
-        <EvidencePanel alert={selectedAlert} incident={selectedIncident} />
-        <ActionDock incident={selectedIncident} />
-        <AgentRuntimePanel />
-      </div>
+
+      <SignalStream limit={6} />
     </div>
   );
 };
@@ -682,24 +684,26 @@ export const IncidentWorkspaceView = () => {
   return (
     <div className="case-board-grid">
       <CaseQueue />
-      <div className="case-center">
-        <section className="os-panel case-header-panel">
-          <div className="case-header-line">
-            <div>
-              <span>selected case</span>
-              <strong>{selectedIncident ? getIncidentCode(selectedIncident) : "No case"}</strong>
-              {selectedIncident ? <small>{getIncidentMeta(selectedIncident)}</small> : null}
+      <div className="incident-detail-stack">
+        <div className="case-center">
+          <section className="os-panel case-header-panel">
+            <div className="case-header-line">
+              <div>
+                <span>selected case</span>
+                <strong>{selectedIncident ? getIncidentCode(selectedIncident) : "No case"}</strong>
+                {selectedIncident ? <small>{getIncidentMeta(selectedIncident)}</small> : null}
+              </div>
+              <SeverityPill severity={selectedIncident?.severity ?? "low"} />
             </div>
-            <SeverityPill severity={selectedIncident?.severity ?? "low"} />
-          </div>
-        </section>
-        <IncidentTimeline incident={selectedIncident} />
+          </section>
+          <IncidentTimeline incident={selectedIncident} />
+        </div>
+        <aside className="case-rail">
+          <EvidencePanel alert={selectedAlert} incident={selectedIncident} />
+          <ActionDock incident={selectedIncident} />
+          <NotificationRail incident={selectedIncident} />
+        </aside>
       </div>
-      <aside className="case-rail">
-        <EvidencePanel alert={selectedAlert} incident={selectedIncident} />
-        <ActionDock incident={selectedIncident} />
-        <NotificationRail incident={selectedIncident} />
-      </aside>
     </div>
   );
 };
@@ -713,10 +717,10 @@ export const InboxWorkspaceView = () => (
 
 export const OperationsWorkspaceView = () => {
   const { incidents, selectedIncident, setSelectedIncidentId } = useDashboardWorkspace();
-  const pending = incidents.filter((incident) => incident.actions.some((action) => action.status === "requested"));
+  const pending = incidents.filter((incident) => incident.actions.some((action) => action.status === "pending"));
   const completed = incidents.flatMap((incident) =>
     incident.actions
-      .filter((action) => action.status !== "requested")
+      .filter((action) => action.status !== "pending")
       .map((action) => ({ incidentId: incident.id, action }))
   );
 
@@ -736,7 +740,7 @@ export const OperationsWorkspaceView = () => {
               <button key={incident.id} type="button" className="case-row" onClick={() => setSelectedIncidentId(incident.id)}>
                 <div>
                   <strong>{getIncidentCode(incident)}</strong>
-                  <small>{incident.actions.filter((action) => action.status === "requested").length} requested</small>
+                  <small>{incident.actions.filter((action) => action.status === "pending").length} pending</small>
                 </div>
                 <SeverityPill severity={incident.severity} />
               </button>

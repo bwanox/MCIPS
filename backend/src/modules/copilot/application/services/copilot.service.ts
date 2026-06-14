@@ -23,6 +23,7 @@ export class CopilotService {
     if (!incident) {
       return {
         answer: "Incident not found.",
+        citations: [],
         usedFallback: true,
         source: "backend",
         modelUsed: "backend_fallback"
@@ -35,6 +36,7 @@ export class CopilotService {
       sourceFamilies: incident.sourceFamilies,
       recommendedActions: incident.recommendedActions,
       timeline: incident.timeline,
+      evidence: incident.evidence,
       question
     });
 
@@ -42,6 +44,7 @@ export class CopilotService {
       await this.incidentService.recordCopilotMetadata(incident.id, answer);
       return {
         answer: answer.content,
+        citations: answer.citations ?? [],
         usedFallback: answer.fallbackUsed,
         source: toCopilotSource(answer.modelUsed, answer.fallbackUsed),
         modelUsed: answer.modelUsed
@@ -50,6 +53,7 @@ export class CopilotService {
 
     return {
       answer: `Incident ${incident.id} is ${incident.severity} severity, currently ${incident.status}. Recommended actions: ${incident.recommendedActions.join("; ")}.`,
+      citations: incident.evidence[0] ? [incident.evidence[0].citationId] : [],
       usedFallback: true,
       source: "backend",
       modelUsed: "backend_fallback"

@@ -16,8 +16,8 @@ const riskKeys: RiskLevel[] = ["LOW", "MEDIUM", "HIGH"];
 export class StatsService {
   constructor(private readonly alertsRepository: AlertRepository) {}
 
-  async getSummary(): Promise<StatsSummary> {
-    const alerts = await this.alertsRepository.list();
+  async getSummary(tenantId?: string): Promise<StatsSummary> {
+    const alerts = await this.alertsRepository.list(tenantId);
     const topFeatures = new Map<string, number>();
     const topRiskFactors = new Map<string, number>();
     const datasetFamilies = new Map<string, number>();
@@ -36,7 +36,9 @@ export class StatsService {
 
     return {
       totalAlerts: alerts.length,
-      correlatedIncidentsCount: alerts.filter((alert) => alert.correlationDetected).length,
+      correlatedIncidentsCount: new Set(
+        alerts.filter((alert) => alert.correlationDetected).map((alert) => alert.incidentId)
+      ).size,
       highRiskAlerts: alerts.filter((alert) => alert.risk === "HIGH").length,
       mediumRiskAlerts: alerts.filter((alert) => alert.risk === "MEDIUM").length,
       lowRiskAlerts: alerts.filter((alert) => alert.risk === "LOW").length,
@@ -74,8 +76,8 @@ export class StatsService {
     };
   }
 
-  async getTimeline(range: "today" | "week" | "month"): Promise<TimelinePoint[]> {
-    const alerts = await this.alertsRepository.list();
+  async getTimeline(range: "today" | "week" | "month", tenantId?: string): Promise<TimelinePoint[]> {
+    const alerts = await this.alertsRepository.list(tenantId);
     const buckets = new Map<string, TimelinePoint>();
     const now = Date.now();
     const rangeWindow =

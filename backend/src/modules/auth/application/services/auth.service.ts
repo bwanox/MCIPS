@@ -6,6 +6,8 @@ import { HttpError } from "../../../../shared/presentation/error-middleware.js";
 
 export interface AuthUser {
   email: string;
+  tenantId: string;
+  role: "admin";
 }
 
 export class AuthService {
@@ -20,7 +22,11 @@ export class AuthService {
       throw new HttpError(401, "Invalid credentials");
     }
 
-    const user = { email: env.adminEmail };
+    const user: AuthUser = {
+      email: env.adminEmail,
+      tenantId: env.adminTenantId,
+      role: "admin"
+    };
     const token = jwt.sign(user, env.jwtSecret, {
       expiresIn: env.jwtExpiresIn as SignOptions["expiresIn"]
     });

@@ -1,113 +1,54 @@
-# AI Model Evaluation Report
+# MCIPS Pilot AI Evaluation Report
 
-**Generated:** 2026-06-14T16:50:52.624394
+**Generated:** 2026-06-14T20:46:59.820970+00:00
 
-## Executive Summary
+## Method
 
-This report documents the evaluation of all AI models used in the MCIPS threat detection system. All models have been trained, tested, and validated for production use.
+5-fold stratified out-of-fold evaluation; final artifact trained on all pilot examples.
 
-## Model Evaluation Results
+- Dataset size: **34**
+- Labels: `{"phishing": 17, "safe": 17}`
+- Languages: `{"arabic": 8, "darija": 6, "english": 12, "french": 8}`
+- Status: **pilot, not production validation**
 
-### 1. Phishing Detection Model (phishing_tfidf_v1)
+## Rules vs ML vs Hybrid
 
-**Model Type:** TF-IDF + Logistic Regression  
-**Supported Languages:** english, french, arabic, darija
+| System | Accuracy | Precision | Recall | F1 | PR-AUC | ROC-AUC | Median ms | p95 ms |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Rules | 0.6471 | 1.0000 | 0.2941 | 0.4545 | 0.7274 | 0.7145 | 0.0167 | 0.0242 |
+| Ml | 0.6176 | 0.6250 | 0.5882 | 0.6061 | 0.5742 | 0.5398 | 0.2723 | 0.3736 |
+| Hybrid | 0.6471 | 1.0000 | 0.2941 | 0.4545 | 0.7475 | 0.7301 | 0.2891 | 0.4196 |
 
-#### Training Metrics
-- Training Samples: 9
-- Training Accuracy: 0.5
-- Training F1-Score: 0.6667
-- Training ROC-AUC: 1.0
+## Confusion Matrices
 
-#### Test Metrics
-- Test Samples: 9
-- Accuracy: 0.7778
-- Precision: 0.6667
-- Recall: 1.0
-- F1-Score: 0.8
-- ROC-AUC: 0.85
+### Rules
 
-#### Performance Assessment
-[OK] Model is production-ready with multilingual support
-[OK] Balanced precision and recall across all languages
+| Actual / Predicted | Safe | Phishing |
+|---|---:|---:|
+| Safe | 17 | 0 |
+| Phishing | 12 | 5 |
 
-### 2. URL Risk Scoring Model (url_risk_v1)
+### Ml
 
-**Model Type:** Feature-based Risk Scoring
+| Actual / Predicted | Safe | Phishing |
+|---|---:|---:|
+| Safe | 11 | 6 |
+| Phishing | 7 | 10 |
 
-#### Test Metrics
-- Test Samples: 6
-- Average Prediction Error: 0.2583
+### Hybrid
 
-#### Detected Features
-- URL length anomalies
-- IP address detection
-- Suspicious TLD identification
-- Homoglyph and typosquatting detection
-- URL shortener detection
-- HTTPS verification
-- Domain entropy analysis
-- Query parameter analysis
+| Actual / Predicted | Safe | Phishing |
+|---|---:|---:|
+| Safe | 17 | 0 |
+| Phishing | 12 | 5 |
 
-#### Performance Assessment
-[OK] Model accurately identifies suspicious URLs
-[OK] All major phishing indicators covered
+## Limitations
 
-### 3. Login Anomaly Detection Model (login_anomaly_v1)
-
-**Model Type:** Feature-based Anomaly Scoring
-
-#### Test Metrics
-- Test Samples: 3
-- Accuracy: 0.6667
-
-#### Analyzed Features
-- Unknown country detection
-- Suspicious IP prefix detection
-- Unknown device detection
-- Suspicious user agent detection
-- Impossible travel detection
-- Unusual login hour detection
-
-#### Performance Assessment
-[OK] Model correctly identifies suspicious login patterns
-[OK] All major login anomaly indicators covered
-
-## Overall Model Assessment
-
-### Acceptance Criteria [OK]
-
-- [x] At least one trained model loaded and active in inference pipeline
-- [x] Evaluation metrics calculated and documented
-- [x] Model version information included in API responses
-- [x] Feature importance and top indicators available
-- [x] Multilingual support (English, French, Arabic, Moroccan)
-- [x] All models tested and validated
-
-### Inference Pipeline Status
-
-[OK] Phishing detection model: ACTIVE
-[OK] URL risk scoring: ACTIVE
-[OK] Login anomaly detection: ACTIVE
-[OK] Combined inference pipeline: ACTIVE
-
-### Confidence Assessment
-
-- **Model Reliability:** HIGH - All models tested against diverse datasets
-- **Feature Coverage:** COMPREHENSIVE - All major threat indicators covered
-- **Language Support:** MULTILINGUAL - 4 languages supported
-- **Inference Latency:** LOW - All models execute within SLA
-
-## Recommendations
-
-1. **Monitor Model Drift:** Track model performance metrics over time
-2. **Continuous Improvement:** Retrain models quarterly with new data
-3. **Red Team Testing:** Conduct adversarial testing monthly
-4. **Performance Baseline:** Use these metrics as baseline for future improvements
+- Only 34 curated pilot messages are evaluated.
+- Examples are synthetic or manually curated and are not representative of production traffic.
+- Per-language sample counts are too small for reliable language-specific performance claims.
+- The artifact is a competition baseline and must not be the sole security control.
 
 ## Conclusion
 
-The MCIPS AI threat detection system is now production-ready with multiple trained models, comprehensive evaluation metrics, and multilingual support. The system successfully meets all Member 1 acceptance criteria.
-
-**Status:** [OK] APPROVED FOR PRODUCTION
-
+The live classifier is an explainable **rules + TF-IDF pilot hybrid**. These results demonstrate reproducibility, not production readiness.
