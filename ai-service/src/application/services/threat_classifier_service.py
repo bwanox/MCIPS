@@ -7,6 +7,7 @@ from src.domain.entities.inference_result import InferenceResult
 from src.domain.entities.threat_signal import ThreatSignal
 from src.domain.enums.threat_label import ThreatLabel
 from src.infrastructure.ml.preprocessing.normalize import normalize_text
+from src.infrastructure.ml.pipelines.feature_pipeline import URLFeatureExtractor
 
 
 class ThreatClassifierService:
@@ -192,6 +193,17 @@ class ThreatClassifierService:
         risk = ScoreThreatUseCase.risk_from_score(score)
         confidence = ScoreThreatUseCase.confidence_from_score(score)
         explanation = self._build_explanation(label, features)
+        
+        # Extract and analyze URLs
+        url_analysis = self._extract_and_analyze_urls(content)
+        
+        # Build top indicators (features sorted by weight)
+        top_indicators = sorted(features, key=lambda f: self.FEATURE_WEIGHTS.get(f, 0), reverse=True)[:3]
+        
+        # Add URL reasons to top indicators if any
+        if url_analysis.get("urls", []):
+            for url_data in url_analysis["urls"]:
+                top_indicators.extend(url_data.get("reasons", [])[:2])
 
         return InferenceResult(
             label=label,
@@ -200,7 +212,10 @@ class ThreatClassifierService:
             explanation=explanation,
             features=features,
             model_used="local_rules_v1",
+            model_version="1.0.0",
             fallback_used=True,
+            top_indicators=top_indicators,
+            url_analysis=url_analysis,
         )
 
     def feature_catalog(self) -> list[str]:
@@ -251,3 +266,30 @@ class ThreatClassifierService:
     @staticmethod
     def _contains_any(normalized: str, keywords: set[str]) -> bool:
         return any(keyword in normalized for keyword in keywords)
+
+    def _extract_and_analyze_urls(self, content: str) -> dict:
+        """Extract URLs from content and analyze their risk"""
+        urls = re.findall(
+            r'(https?://[^\s]+|www\.[^\s]+|bit\.ly/\S+|tinyurl\.com/\S+|t\.co/\S+|goo\.gl/\S+)',
+            content,
+            re.IGNORECASE
+        )
+        
+        url_data = {"urls": [], "count": len(urls)}
+        
+        for url in urls:
+            # Clean up URL
+            url = url.rstrip('.,;:!?)')
+            
+            # Analyze URL risk
+            extractor = URLFeatureExtractor()
+            extractor.extract_features(url)
+            risk_info = extractor.calculate_risk_score()
+            
+            url_data["urls"].append({
+                "url": url,
+                "risk": risk_info["url_risk"],
+                "reasons": risk_info["url_reasons"],
+            })
+        
+        return url_data

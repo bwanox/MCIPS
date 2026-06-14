@@ -34,6 +34,10 @@ class AnomalyDetectionService:
         risk = ScoreThreatUseCase.risk_from_score(score)
         confidence = ScoreThreatUseCase.confidence_from_score(score)
         explanation = self._build_explanation(label, features)
+        
+        # Top indicators sorted by weight
+        top_indicators = sorted(features, key=lambda f: self.FEATURE_WEIGHTS.get(f, 0), reverse=True)
+        
         return InferenceResult(
             label=label,
             confidence=confidence,
@@ -41,7 +45,9 @@ class AnomalyDetectionService:
             explanation=explanation,
             features=features,
             model_used="local_login_rules_v1",
+            model_version="1.0.0",
             fallback_used=True,
+            top_indicators=top_indicators,
         )
 
     def feature_catalog(self) -> list[str]:

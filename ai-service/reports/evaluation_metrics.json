@@ -1,0 +1,147 @@
+{
+  "evaluation_timestamp": "2026-06-14T16:50:52.624394",
+  "models": {
+    "phishing": {
+      "model": "phishing_tfidf_v1",
+      "timestamp": "2026-06-14T16:50:52.652962",
+      "training_metrics": {
+        "accuracy": 0.5,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6667,
+        "roc_auc": 1.0,
+        "samples": 9
+      },
+      "test_accuracy": 0.7778,
+      "precision": 0.6667,
+      "recall": 1.0,
+      "f1_score": 0.8,
+      "roc_auc": 0.85,
+      "test_samples": 9,
+      "supported_languages": [
+        "english",
+        "french",
+        "arabic",
+        "darija"
+      ]
+    },
+    "url_risk": {
+      "model": "url_risk_v1",
+      "timestamp": "2026-06-14T16:50:52.660802",
+      "test_samples": 6,
+      "average_error": 0.2583,
+      "test_results": [
+        {
+          "url": "https://www.google.com",
+          "predicted_risk": 0.25,
+          "expected_risk_range": 0.05,
+          "reasons": [
+            "brand_typosquatting"
+          ]
+        },
+        {
+          "url": "http://bit.ly/xyz",
+          "predicted_risk": 0.55,
+          "expected_risk_range": 0.8,
+          "reasons": [
+            "brand_typosquatting",
+            "shortened_url",
+            "no_https"
+          ]
+        },
+        {
+          "url": "https://192.168.1.1/admin",
+          "predicted_risk": 0.45,
+          "expected_risk_range": 0.75,
+          "reasons": [
+            "ip_address",
+            "homoglyph_characters",
+            "suspicious_characters"
+          ]
+        },
+        {
+          "url": "http://paypa1.com/verify",
+          "predicted_risk": 0.6,
+          "expected_risk_range": 0.85,
+          "reasons": [
+            "homoglyph_characters",
+            "brand_typosquatting",
+            "no_https",
+            "suspicious_characters"
+          ]
+        },
+        {
+          "url": "https://attijariwafa.com/secure",
+          "predicted_risk": 0.25,
+          "expected_risk_range": 0.1,
+          "reasons": [
+            "brand_typosquatting"
+          ]
+        },
+        {
+          "url": "http://attijari-wafaa.tk/login",
+          "predicted_risk": 0.5,
+          "expected_risk_range": 0.9,
+          "reasons": [
+            "suspicious_tld",
+            "brand_typosquatting",
+            "no_https"
+          ]
+        }
+      ]
+    },
+    "login_anomaly": {
+      "model": "login_anomaly_v1",
+      "timestamp": "2026-06-14T16:50:52.661097",
+      "test_samples": 3,
+      "accuracy": 0.6667,
+      "test_results": [
+        {
+          "login_data": {
+            "country": "Morocco",
+            "device": "Chrome Mobile",
+            "user_agent": "Mozilla",
+            "ip_address": "192.168.1.1"
+          },
+          "predicted_label": "normal_login",
+          "expected_label": "normal_login",
+          "correct": true,
+          "confidence": 0.3
+        },
+        {
+          "login_data": {
+            "country": "Russia",
+            "device": "Unknown device",
+            "user_agent": "curl",
+            "ip_address": "185.220.101.1"
+          },
+          "predicted_label": "suspicious_login",
+          "expected_label": "suspicious_login",
+          "correct": true,
+          "confidence": 0.99
+        },
+        {
+          "login_data": {
+            "country": "France",
+            "device": "Safari",
+            "user_agent": "Mozilla",
+            "ip_address": "1.2.3.4",
+            "hour": 3
+          },
+          "predicted_label": "normal_login",
+          "expected_label": "suspicious",
+          "correct": false,
+          "confidence": 0.35
+        }
+      ],
+      "features": [
+        "unknown_country",
+        "suspicious_ip_prefix",
+        "unknown_device",
+        "suspicious_user_agent",
+        "impossible_travel",
+        "unusual_hour"
+      ]
+    }
+  }
+}

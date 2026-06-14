@@ -12,4 +12,7 @@ class InferenceResult:
     explanation: str
     features: list[str] = field(default_factory=list)
     model_used: str = "local_rules_v1"
+    model_version: str = "1.0.0"
     fallback_used: bool = True
+    top_indicators: list[str] = field(default_factory=list)
+    url_analysis: dict = field(default_factory=dict)

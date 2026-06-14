@@ -1,7 +1,9 @@
 from fastapi.testclient import TestClient
+import pytest
 
 from src.main import app
 from src.infrastructure.config.settings import get_settings
+from src.infrastructure.config.settings import Settings
 from src.infrastructure.llm.openrouter_client import OpenRouterClient
 
 client = TestClient(app)
@@ -92,3 +94,62 @@ def test_invalid_qwen_json_falls_back_to_local(monkeypatch) -> None:
 
     settings.enable_llm = False
     settings.openrouter_api_key = ""
+
+
+def test_reason_endpoint_returns_summary_and_actions() -> None:
+    response = client.post(
+        "/api/v1/incidents/reason",
+        json={
+            "incidentId": "incident-1",
+            "tenantId": "tenant-demo",
+            "title": "Correlated phishing and suspicious login detected",
+            "summary": "A phishing SMS was followed by a suspicious login.",
+            "recommendedActions": ["Force a password reset and invalidate active sessions."],
+            "signals": [
+                {
+                    "eventId": "event-1",
+                    "eventType": "sms.message.received",
+                    "title": "Phishing SMS detected",
+                    "label": "phishing",
+                    "risk": "HIGH",
+                }
+            ],
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "summary" in data
+    assert isinstance(data["recommended_actions"], list)
+    assert "model_used" in data
+    assert "fallback_used" in data
+
+
+def test_copilot_answer_returns_reasoning_metadata() -> None:
+    response = client.post(
+        "/api/v1/copilot/answer",
+        json={
+            "incidentId": "incident-1",
+            "summary": "A phishing SMS was followed by a suspicious login.",
+            "sourceFamilies": ["messaging", "login"],
+            "recommendedActions": ["Force a password reset and invalidate active sessions."],
+            "timeline": [
+                {
+                    "title": "Phishing SMS detected",
+                    "occurredAt": "2025-01-15T14:23:44.998Z",
+                    "sourceFamily": "messaging",
+                    "severity": "critical",
+                }
+            ],
+            "question": "What should we do first?",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "answer" in data
+    assert "model_used" in data
+    assert "fallback_used" in data
+
+
+def test_non_free_openrouter_model_is_rejected() -> None:
+    with pytest.raises(ValueError):
+        Settings(openrouter_model="openai/gpt-4o-mini")

@@ -50,7 +50,10 @@ class HybridAIService:
             explanation=llm_result.explanation,
             features=merged_features,
             model_used=self._settings.openrouter_model,
+            model_version=llm_result.model_version,
             fallback_used=False,
+            top_indicators=llm_result.top_indicators,
+            url_analysis=llm_result.url_analysis,
         )
 
     def _should_use_llm(self) -> bool:
@@ -81,5 +84,7 @@ class HybridAIService:
             explanation=explanation,
             features=features,
             model_used=self._settings.openrouter_model,
+            model_version="2.0.0",
             fallback_used=False,
+            top_indicators=features[:3],
         )

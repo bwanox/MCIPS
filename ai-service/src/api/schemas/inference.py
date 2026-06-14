@@ -37,5 +37,7 @@ class AnalyzeResponse(BaseModel):
     explanation: str
     features: list[str]
     model_used: str
+    model_version: str = "1.0.0"
     fallback_used: bool
-    
+    top_indicators: list[str] = Field(default_factory=list)
+    url_analysis: dict = Field(default_factory=dict)

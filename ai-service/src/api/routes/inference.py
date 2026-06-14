@@ -20,5 +20,8 @@ async def analyze(
         explanation=result.explanation,
         features=result.features,
         model_used=result.model_used,
+        model_version=result.model_version,
         fallback_used=result.fallback_used,
+        top_indicators=result.top_indicators,
+        url_analysis=result.url_analysis,
     )
