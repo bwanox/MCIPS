@@ -12,7 +12,7 @@ describe("MITRE ATT&CK Engine", () => {
       features: ["credential_request"],
       message: "Votre compte CIH est bloque. Confirmez sur https://cih-verification.example",
       explanation: "Phishing SMS message with url"
-    };
+    } as any;
 
     const mappings = mapAlertToMitre(alertMock);
     expect(mappings.length).toBeGreaterThanOrEqual(1);
@@ -27,7 +27,7 @@ describe("MITRE ATT&CK Engine", () => {
       features: [],
       message: "Suspicious login attempt",
       explanation: "Login from unfamiliar location"
-    };
+    } as any;
 
     const mappings = mapAlertToMitre(alertMock);
     expect(mappings[0].tactic).toBe("Initial Access");
@@ -41,7 +41,7 @@ describe("MITRE ATT&CK Engine", () => {
       features: ["failed_login_activity"],
       message: "Multiple failed logins",
       explanation: "Brute force pattern"
-    };
+    } as any;
 
     const mappings = mapAlertToMitre(alertMock);
     expect(mappings[0].tactic).toBe("Credential Access");
@@ -54,7 +54,7 @@ describe("MITRE ATT&CK Engine", () => {
       features: [],
       message: "Healthy login",
       explanation: "User login succeeded"
-    };
+    } as any;
 
     const mappings = mapAlertToMitre(alertMock);
     expect(mappings).toEqual([]);
@@ -103,7 +103,7 @@ describe("Risk Scoring Engine", () => {
       risk: "HIGH" as const,
       confidence: 0.95,
       features: ["credential_request"]
-    };
+    } as any;
 
     const indicators = [
       {
@@ -140,7 +140,7 @@ describe("Risk Scoring Engine", () => {
       risk: "HIGH" as const,
       confidence: 0.90,
       features: ["otp_request"]
-    };
+    } as any;
 
     const indicators = [
       {
