@@ -109,16 +109,19 @@ export const buildIncidentGraph = (
     const hasSms = correlatedSignals.some(s => s.datasetFamily === "sms_threat") || alert.datasetFamily === "sms_threat";
     const hasLogin = correlatedSignals.some(s => s.datasetFamily === "auth_security") || alert.datasetFamily === "auth_security";
 
+    const bankName = alert.detectedBank || (correlatedSignals.find(s => (s as any).detectedBank) as any)?.detectedBank || "Brand";
+
     if (hasSms && hasLogin) {
-      evidenceChain.push("SMS -> suspicious URL -> Moroccan bank impersonation");
+      evidenceChain.push(`SMS -> suspicious URL -> ${bankName} impersonation`);
       evidenceChain.push(`SMS -> same tenant (${alert.tenantId}) -> suspicious login two minutes later`);
       evidenceChain.push("Login -> unknown device -> high-risk account compromise");
     } else {
       evidenceChain.push(`${correlatedSignals[0].title} -> same tenant context -> ${alert.title}`);
     }
   } else {
+    const bankName = alert.detectedBank || "Brand";
     if (alert.datasetFamily === "sms_threat" || alert.eventType === "sms.message.received") {
-      evidenceChain.push("SMS -> suspicious URL -> Moroccan bank impersonation");
+      evidenceChain.push(`SMS -> suspicious URL -> ${bankName} impersonation`);
     } else if (alert.datasetFamily === "auth_security" || alert.eventType === "auth.login.attempt") {
       evidenceChain.push("Login -> unknown device -> high-risk account compromise");
     } else {

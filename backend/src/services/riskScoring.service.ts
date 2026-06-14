@@ -126,11 +126,26 @@ export const calculateExplainableRisk = ({
   let correlationBonus = 0;
   if (correlationDetected) {
     correlationBonus += 20;
+
+    const isPhishing = draftAlert.label === "phishing" || draftAlert.label === "scam" || event.eventType?.includes("sms") || event.eventType?.includes("email");
+    const isLogin = draftAlert.label === "suspicious_login" || event.eventType?.includes("auth") || event.eventType?.includes("login");
+
+    let label = "Correlated multi-vector threat";
+    let detail = "Multiple suspicious security signals were correlated for the same tenant/user.";
+
+    if ((isPhishing && isLogin) || (draftAlert.label === "suspicious_login" && correlationDetected)) {
+      label = "Phishing followed by login";
+      detail = "A suspected phishing communication was correlated with a subsequent login attempt.";
+    } else if (draftAlert.label === "network_intrusion" || event.eventType?.includes("net")) {
+      label = "Network anomaly correlation";
+      detail = "Suspicious network events were correlated with related host or log activity.";
+    }
+
     factors.push({
-      key: "phishing_followed_login",
-      label: "Phishing followed by login",
+      key: "correlation_bonus",
+      label,
       weight: 20,
-      detail: "SMS phishing message was correlated with a login attempt inside the 20-minute window."
+      detail
     });
   }
 

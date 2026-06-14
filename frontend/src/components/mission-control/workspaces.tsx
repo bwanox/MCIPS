@@ -382,12 +382,13 @@ const EvidencePanel = ({ alert, incident }: { alert: Alert | null; incident: Inc
   const intelList = alert?.threatIntel ?? incident?.threatIntel ?? [];
   
   // Custom fallback to build evidenceChain locally if it's missing from DB
+  const dynamicBank = alert?.detectedBank ?? (incident as any)?.detectedBank ?? "Brand";
   const evidenceChain = incident?.graph?.evidenceChain ?? (alert ? (alert.correlationDetected ? [
-    "SMS -> suspicious URL -> Moroccan bank impersonation",
+    `SMS -> suspicious URL -> ${dynamicBank} impersonation`,
     "SMS -> same tenant -> suspicious login two minutes later",
     "Login -> unknown device -> high-risk account compromise"
   ] : [
-    "SMS -> suspicious URL -> Moroccan bank impersonation"
+    `SMS -> suspicious URL -> ${dynamicBank} impersonation`
   ]) : []);
 
   const factors = alert?.explainableRisk?.factors ?? [];
