@@ -17,6 +17,41 @@ export type ThreatLabel =
   | "suspicious_login"
   | "network_intrusion"
   | "log_anomaly";
+export interface MitreMapping {
+  tactic: string;
+  techniqueId: string;
+  technique: string;
+  reason: string;
+}
+
+export interface ThreatIndicator {
+  type: "url" | "domain" | "ip" | "sender" | "brand";
+  value: string;
+  reputation: "clean" | "suspicious" | "malicious" | "unknown";
+  category: string;
+  source: string;
+  confidence: number;
+  lastSeen: string;
+}
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  type: string;
+}
+
+export interface GraphEdge {
+  from: string;
+  to: string;
+  type: string;
+}
+
+export interface IncidentGraphSummary {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  evidenceChain: string[];
+}
+
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH";
 export type AlertSeverity = "critical" | "high" | "medium" | "low";
 
@@ -139,6 +174,8 @@ export interface AlertRecord {
   modelUsed: string;
   fallbackUsed: boolean;
   timestamp: string;
+  mitre?: MitreMapping[];
+  threatIntel?: ThreatIndicator[];
 }
 
 export interface EventLogRecord {
@@ -184,6 +221,10 @@ export interface IncidentTimelineEntry {
   sourceAdapter: string;
   occurredAt: string;
   severity: AlertSeverity;
+  mitreTags?: string[];
+  riskChange?: string;
+  recommendedAction?: string;
+  evidenceType?: string;
 }
 
 export interface IncidentActionRecord {
@@ -238,6 +279,9 @@ export interface IncidentRecord {
   latestAlertId: string;
   latestEventId: string;
   aiProvenance: IncidentAiProvenance;
+  mitre?: MitreMapping[];
+  threatIntel?: ThreatIndicator[];
+  graph?: IncidentGraphSummary;
 }
 
 export interface CopilotFeedItem {

@@ -20,6 +20,7 @@ import type { EmailNotificationService } from "../../../notifications/applicatio
 import type { AgentClientService } from "../../../agent/application/services/agent-client.service.js";
 import type { AiInferenceService } from "../../../events/application/services/ai-inference.service.js";
 import type { AppSocketServer } from "../../../../shared/config/socket.js";
+import { buildIncidentGraph } from "../../../../services/incidentGraph.service.js";
 
 const toTriagePriority = (severity: AlertRecord["severity"]): TriagePriority => {
   switch (severity) {
@@ -101,7 +102,13 @@ export class IncidentService {
       sourceFamily: alert.sourceFamily,
       sourceAdapter: alert.sourceAdapter,
       occurredAt: alert.occurredAt,
-      severity: alert.severity
+      severity: alert.severity,
+      mitreTags: alert.mitre?.map(m => m.techniqueId) ?? [],
+      riskChange: alert.explainableRisk.escalated
+        ? `+${alert.explainableRisk.correlationBonus} (Correlation Escalation)`
+        : `+${alert.explainableRisk.finalScore} (Initial Discovery)`,
+      recommendedAction: alert.recommendedActions[0] ?? "Analyze compromised session activity details.",
+      evidenceType: alert.eventType
     };
   }
 
@@ -220,7 +227,10 @@ export class IncidentService {
         approvalRequiredReason: reasoning.approvalReason
       },
       latestAlertId: alert.id,
-      latestEventId: eventLog.eventId
+      latestEventId: eventLog.eventId,
+      mitre: alert.mitre ?? [],
+      threatIntel: alert.threatIntel ?? [],
+      graph: buildIncidentGraph(alert, alert.correlatedSignals)
     };
 
     const saved = existing ? await this.repository.update(incident) : await this.repository.create(incident);

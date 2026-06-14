@@ -16,6 +16,10 @@ export interface IncidentTimelineEntry {
   sourceAdapter: string;
   occurredAt: string;
   severity: AlertSeverity;
+  mitreTags?: string[];
+  riskChange?: string;
+  recommendedAction?: string;
+  evidenceType?: string;
 }
 
 export interface IncidentAction {
@@ -74,6 +78,26 @@ export interface Incident {
     lastCopilotAnswerSource?: "local_model" | "cloud_model" | "deterministic_fallback" | "backend";
     lastCopilotAnswerModelUsed?: string;
     lastCopilotAnswerFallbackUsed?: boolean;
+  };
+  mitre?: Array<{
+    tactic: string;
+    techniqueId: string;
+    technique: string;
+    reason: string;
+  }>;
+  threatIntel?: Array<{
+    type: "url" | "domain" | "ip" | "sender" | "brand";
+    value: string;
+    reputation: "clean" | "suspicious" | "malicious" | "unknown";
+    category: string;
+    source: string;
+    confidence: number;
+    lastSeen: string;
+  }>;
+  graph?: {
+    nodes: Array<{ id: string; label: string; type: string }>;
+    edges: Array<{ from: string; to: string; type: string }>;
+    evidenceChain: string[];
   };
 }
 

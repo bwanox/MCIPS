@@ -82,4 +82,19 @@ export interface Alert {
   modelUsed: string;
   fallbackUsed: boolean;
   timestamp: string;
+  mitre?: Array<{
+    tactic: string;
+    techniqueId: string;
+    technique: string;
+    reason: string;
+  }>;
+  threatIntel?: Array<{
+    type: "url" | "domain" | "ip" | "sender" | "brand";
+    value: string;
+    reputation: "clean" | "suspicious" | "malicious" | "unknown";
+    category: string;
+    source: string;
+    confidence: number;
+    lastSeen: string;
+  }>;
 }

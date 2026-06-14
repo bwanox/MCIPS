@@ -10,6 +10,9 @@ import type {
   RiskLevel,
   SanitizedEventResult
 } from "../shared/types/platform.js";
+import { mapAlertToMitre } from "./mitreMapping.service.js";
+import { extractAndEnrichIndicators } from "./threatIntel.service.js";
+import { calculateExplainableRisk } from "./riskScoring.service.js";
 
 const correlationWindowMs = 20 * 60 * 1000;
 
@@ -295,61 +298,27 @@ export const enrichAlertWithIncidentCorrelation = ({
       timestamp: alert.timestamp
     }));
 
-  const baseFactors = buildBaseFactors(draftAlert, event, sanitized);
-  let correlationBonus = 0;
-  const correlationFactors: RiskFactor[] = [];
+  const correlationDetected = matchingSignals.length > 0;
 
-  if (matchingSignals.length > 0) {
-    correlationBonus += 26;
-    correlationFactors.push({
-      key: "correlated_signal_chain",
-      label: "Correlated multi-signal incident",
-      weight: 26,
-      detail: "Multiple threat signals were linked for the same tenant within a short response window."
-    });
-  }
+  // Extract and enrich threat intelligence indicators
+  const indicators = extractAndEnrichIndicators(
+    (event.payload as Record<string, unknown>) ?? {},
+    sanitized.sanitizedPreview ?? "",
+    sanitized.detectedBank ?? ""
+  );
 
-  if (
-    event.eventType === "auth.login.attempt" &&
-    matchingSignals.some((signal) => messageFamilySet.has(signal.datasetFamily))
-  ) {
-    correlationBonus += 12;
-    correlationFactors.push({
-      key: "phishing_then_login",
-      label: "Phishing followed by login activity",
-      weight: 12,
-      detail: "A phishing-like message signal was followed by a suspicious authentication attempt."
-    });
-  }
+  // Map alert to MITRE ATT&CK techniques
+  const mitre = mapAlertToMitre(draftAlert);
 
-  if (
-    event.eventType === "net.intrusion.suspected" &&
-    matchingSignals.some((signal) => signal.datasetFamily === "auth_security")
-  ) {
-    correlationBonus += 10;
-    correlationFactors.push({
-      key: "login_then_network",
-      label: "Login and network escalation",
-      weight: 10,
-      detail: "Network telemetry reinforced an already suspicious access pattern."
-    });
-  }
-
-  const explainableRisk: ExplainableRiskScore = {
-    baseScore: baseRiskScoreByRisk[draftAlert.risk],
-    correlationBonus,
-    finalScore: Math.min(
-      100,
-      baseRiskScoreByRisk[draftAlert.risk] +
-        baseFactors.filter((factor) => factor.key !== "base_risk").reduce((sum, factor) => sum + factor.weight, 0) +
-        correlationBonus
-    ),
-    escalated: matchingSignals.length > 0,
-    factors: [...baseFactors, ...correlationFactors]
-  };
+  // Calculate new explainable risk score
+  const explainableRisk = calculateExplainableRisk({
+    draftAlert,
+    indicators,
+    correlationDetected,
+    event
+  });
 
   const finalRisk = riskFromScore(explainableRisk.finalScore);
-  const correlationDetected = matchingSignals.length > 0;
   const incidentId = correlationDetected ? matchingSignals[0]?.alertId ?? `incident-${draftAlert.eventId}` : `incident-${draftAlert.eventId}`;
   const recommendedActions = buildRecommendedActions(event, matchingSignals, correlationDetected);
   const title = buildIncidentTitle(draftAlert, matchingSignals, event);
@@ -369,6 +338,8 @@ export const enrichAlertWithIncidentCorrelation = ({
     incidentSummary,
     recommendedActions,
     correlatedSignals: matchingSignals,
-    explainableRisk
+    explainableRisk,
+    mitre,
+    threatIntel: indicators
   };
 };

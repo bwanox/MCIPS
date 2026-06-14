@@ -60,6 +60,8 @@ export const createAlertsRoutes = (alertsRepository: AlertRepository, authServic
         severity: alert.severity,
         risk: alert.risk,
         explainableRisk: alert.explainableRisk,
+        mitre: alert.mitre ?? [],
+        threatIntel: alert.threatIntel ?? [],
         correlatedSignals: alert.correlatedSignals,
         recommendedActions: alert.recommendedActions,
         detection: {

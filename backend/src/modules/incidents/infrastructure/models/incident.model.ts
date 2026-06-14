@@ -19,7 +19,10 @@ const incidentSchema = new Schema(
     notifications: [{ type: Schema.Types.Mixed, required: true }],
     aiProvenance: { type: Schema.Types.Mixed, required: true },
     latestAlertId: { type: String, required: true },
-    latestEventId: { type: String, required: true }
+    latestEventId: { type: String, required: true },
+    mitre: [{ type: Schema.Types.Mixed }],
+    threatIntel: [{ type: Schema.Types.Mixed }],
+    graph: { type: Schema.Types.Mixed }
   },
   {
     versionKey: false

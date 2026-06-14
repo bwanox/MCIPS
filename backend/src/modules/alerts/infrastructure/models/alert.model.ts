@@ -37,7 +37,9 @@ const alertSchema = new Schema(
     sanitizedPayload: { type: Schema.Types.Mixed, required: true },
     modelUsed: { type: String, required: true },
     fallbackUsed: { type: Boolean, required: true },
-    timestamp: { type: String, required: true }
+    timestamp: { type: String, required: true },
+    mitre: [{ type: Schema.Types.Mixed }],
+    threatIntel: [{ type: Schema.Types.Mixed }]
   },
   {
     versionKey: false

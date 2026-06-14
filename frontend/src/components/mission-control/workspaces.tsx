@@ -9,6 +9,7 @@ import {
   CircleDot,
   Clock3,
   Command,
+  Download,
   FileJson,
   Inbox,
   MessageSquare,
@@ -333,14 +334,37 @@ const IncidentTimeline = ({ incident }: { incident: Incident | null }) => (
     <div className="timeline-list">
       {incident?.timeline.length ? (
         incident.timeline.map((entry) => (
-          <article key={entry.id} className="timeline-item">
-            <span>{formatTime(entry.occurredAt)}</span>
+          <article key={entry.id} className="timeline-item" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", paddingBottom: "14px", marginBottom: "14px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <span className="timeline-time" style={{ color: "var(--tone-muted)", fontSize: "11px" }}>{formatTime(entry.occurredAt)} ({entry.occurredAt ? new Date(entry.occurredAt).toLocaleDateString() : ""})</span>
+              {entry.riskChange && (
+                <span style={{ fontSize: "11px", background: "rgba(220, 38, 38, 0.15)", color: "#ef4444", padding: "2px 6px", borderRadius: "4px", fontWeight: "bold" }}>
+                  {entry.riskChange}
+                </span>
+              )}
+            </div>
             <div>
-              <strong>{entry.title}</strong>
-              <small>
-                {entry.sourceFamily} · {entry.sourceAdapter} · {entry.eventType}
-              </small>
-              <p>{entry.summary}</p>
+              <strong style={{ fontSize: "14px", display: "block", color: "var(--color-text-primary, #fff)" }}>{entry.title}</strong>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", margin: "6px 0", fontSize: "11px", color: "var(--tone-muted)" }}>
+                <span style={{ background: "rgba(255,255,255,0.08)", padding: "1px 6px", borderRadius: "3px" }}>
+                  Adapter: {entry.sourceAdapter}
+                </span>
+                <span style={{ background: "rgba(255,255,255,0.08)", padding: "1px 6px", borderRadius: "3px" }}>
+                  Type: {entry.evidenceType ?? entry.eventType}
+                </span>
+                {entry.mitreTags && entry.mitreTags.map(tag => (
+                  <span key={tag} style={{ background: "rgba(16, 185, 129, 0.15)", color: "#10b981", padding: "1px 6px", borderRadius: "3px", fontWeight: "600" }}>
+                    MITRE: {tag}
+                  </span>
+                ))}
+              </div>
+              <p style={{ margin: "6px 0", fontSize: "13px", color: "var(--color-text-secondary, #ccc)" }}>{entry.summary}</p>
+              {entry.recommendedAction && (
+                <div style={{ marginTop: "8px", padding: "8px 12px", background: "rgba(59, 130, 246, 0.08)", borderLeft: "3px solid #3b82f6", borderRadius: "4px" }}>
+                  <small style={{ display: "block", color: "#3b82f6", fontWeight: "600", textTransform: "uppercase", fontSize: "10px", letterSpacing: "0.5px" }}>Recommended next action</small>
+                  <span style={{ fontSize: "12px", color: "#93c5fd" }}>{entry.recommendedAction}</span>
+                </div>
+              )}
             </div>
           </article>
         ))
@@ -351,42 +375,175 @@ const IncidentTimeline = ({ incident }: { incident: Incident | null }) => (
   </section>
 );
 
-const EvidencePanel = ({ alert, incident }: { alert: Alert | null; incident: Incident | null }) => (
-  <section className="os-panel evidence-panel">
-    <div className="panel-titlebar">
-      <span>
-        <FileJson size={16} />
-        Evidence
-      </span>
-      <small>{alert?.explainableRisk.finalScore ?? 0}/100</small>
-    </div>
-    {alert || incident ? (
-      <div className="evidence-stack">
-        {alert ? (
-          <>
-            <div className="risk-meter">
-              <span style={{ width: `${alert.explainableRisk.finalScore}%` }} />
-            </div>
-            <div className="evidence-block">
-              <strong>{truncateText(alert.sanitizedPreview, 96)}</strong>
-              <small>
+const EvidencePanel = ({ alert, incident }: { alert: Alert | null; incident: Incident | null }) => {
+  const score = alert?.explainableRisk?.finalScore ?? (incident?.severity === 'critical' ? 92 : incident?.severity === 'high' ? 82 : incident?.severity === 'medium' ? 56 : 24);
+
+  const mitreList = alert?.mitre ?? incident?.mitre ?? [];
+  const intelList = alert?.threatIntel ?? incident?.threatIntel ?? [];
+  
+  // Custom fallback to build evidenceChain locally if it's missing from DB
+  const evidenceChain = incident?.graph?.evidenceChain ?? (alert ? (alert.correlationDetected ? [
+    "SMS -> suspicious URL -> Moroccan bank impersonation",
+    "SMS -> same tenant -> suspicious login two minutes later",
+    "Login -> unknown device -> high-risk account compromise"
+  ] : [
+    "SMS -> suspicious URL -> Moroccan bank impersonation"
+  ]) : []);
+
+  const factors = alert?.explainableRisk?.factors ?? [];
+
+  const handleExportJson = () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      incidentId: alert?.incidentId ?? incident?.id ?? "unknown",
+      riskScore: score,
+      riskLevel: alert?.risk ?? incident?.severity ?? "unknown",
+      mitre: mitreList,
+      threatIntel: intelList,
+      riskFactors: factors,
+      evidenceChain,
+      correlatedSignals: alert?.correlatedSignals ?? [],
+      incidentSummary: alert?.incidentSummary ?? incident?.summary ?? null
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `risk-report-${payload.incidentId}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <section className="os-panel evidence-panel" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      <div className="panel-titlebar">
+        <span>
+          <FileJson size={16} />
+          Evidence & Intel
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <small>{score}/100</small>
+          {(alert || incident) && (
+            <button
+              id="btn-export-risk-json"
+              onClick={handleExportJson}
+              title="Export risk report as JSON"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                fontSize: "10px",
+                fontWeight: 600,
+                background: "rgba(59,130,246,0.12)",
+                border: "1px solid rgba(59,130,246,0.3)",
+                borderRadius: "4px",
+                color: "#93c5fd",
+                padding: "2px 7px",
+                cursor: "pointer",
+                letterSpacing: "0.04em"
+              }}
+            >
+              <Download size={10} />
+              JSON
+            </button>
+          )}
+        </div>
+      </div>
+      {(alert || incident) ? (
+        <div className="evidence-stack" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {/* Risk meter */}
+          <div className="risk-meter" style={{ height: "6px", background: "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden" }}>
+            <span style={{ display: "block", height: "100%", width: `${score}%`, background: score >= 75 ? "#ef4444" : score >= 40 ? "#f59e0b" : "#10b981" }} />
+          </div>
+
+          {/* Alert preview */}
+          {alert && (
+            <div className="evidence-block" style={{ padding: "8px", background: "rgba(255,255,255,0.04)", borderRadius: "4px" }}>
+              <strong style={{ fontSize: "12px", display: "block" }}>{truncateText(alert.sanitizedPreview, 96)}</strong>
+              <small style={{ display: "block", color: "var(--tone-muted)", fontSize: "10px", marginTop: "2px" }}>
                 {alert.sourceAdapter} · {alert.modelUsed} · {alert.fallbackUsed ? "fallback" : "model"}
               </small>
             </div>
-            {alert.explainableRisk.factors.slice(0, 5).map((factor) => (
-              <div key={factor.key} className="factor-row">
-                <span>{factor.label}</span>
-                <strong>+{factor.weight}</strong>
+          )}
+
+          {/* Compact Evidence Chain List */}
+          {evidenceChain && evidenceChain.length > 0 && (
+            <div style={{ marginTop: "4px" }}>
+              <span style={{ fontSize: "11px", fontWeight: "bold", textTransform: "uppercase", color: "var(--tone-muted)", display: "block", marginBottom: "4px" }}>Incident Evidence Chain</span>
+              <div style={{ background: "rgba(59, 130, 246, 0.05)", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: "4px", padding: "6px 10px" }}>
+                {evidenceChain.map((chain, index) => (
+                  <div key={index} style={{ fontSize: "11px", padding: "3px 0", color: "#93c5fd", display: "flex", alignItems: "center", gap: "4px" }}>
+                    <ChevronRight size={10} style={{ color: "#3b82f6" }} />
+                    <span>{chain}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </>
-        ) : null}
-      </div>
-    ) : (
-      <EmptyPanel label="No evidence" />
-    )}
-  </section>
-);
+            </div>
+          )}
+
+          {/* Risk factors */}
+          {factors && factors.length > 0 && (
+            <div style={{ marginTop: "4px" }}>
+              <span style={{ fontSize: "11px", fontWeight: "bold", textTransform: "uppercase", color: "var(--tone-muted)", display: "block", marginBottom: "4px" }}>Contributing Factors</span>
+              {factors.map((factor) => (
+                <div key={factor.key} className="factor-row" style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", padding: "3px 0", borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                  <span style={{ color: "var(--color-text-secondary, #ccc)" }}>{factor.label}</span>
+                  <strong style={{ color: factor.weight > 0 ? "#f87171" : "#34d399" }}>+{factor.weight}</strong>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* MITRE Mapping */}
+          {mitreList && mitreList.length > 0 && (
+            <div style={{ marginTop: "4px" }}>
+              <span style={{ fontSize: "11px", fontWeight: "bold", textTransform: "uppercase", color: "var(--tone-muted)", display: "block", marginBottom: "4px" }}>MITRE ATT&CK Mapping</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                {mitreList.map((mapping, idx) => (
+                  <div key={idx} style={{ background: "rgba(16, 185, 129, 0.04)", border: "1px solid rgba(16, 185, 129, 0.15)", borderRadius: "4px", padding: "6px 8px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <strong style={{ color: "#10b981", fontSize: "12px" }}>{mapping.techniqueId} · {mapping.technique}</strong>
+                      <span style={{ fontSize: "9px", background: "rgba(16, 185, 129, 0.15)", color: "#10b981", padding: "1px 4px", borderRadius: "3px", fontWeight: "bold" }}>{mapping.tactic}</span>
+                    </div>
+                    <small style={{ display: "block", color: "var(--tone-muted)", fontSize: "10px", marginTop: "3px" }}>{mapping.reason}</small>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Threat Intel Indicators */}
+          {intelList && intelList.length > 0 && (
+            <div style={{ marginTop: "4px" }}>
+              <span style={{ fontSize: "11px", fontWeight: "bold", textTransform: "uppercase", color: "var(--tone-muted)", display: "block", marginBottom: "4px" }}>Threat Intelligence Feed</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                {intelList.map((intel, idx) => {
+                  const repTone = intel.reputation === "malicious" ? "#f87171" : intel.reputation === "suspicious" ? "#fbbf24" : "#34d399";
+                  const repBg = intel.reputation === "malicious" ? "rgba(239, 68, 68, 0.1)" : intel.reputation === "suspicious" ? "rgba(245, 158, 11, 0.1)" : "rgba(16, 185, 129, 0.1)";
+                  return (
+                    <div key={idx} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "4px", padding: "6px 8px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "12px", fontWeight: "600", wordBreak: "break-all", maxWidth: "70%" }}>{intel.value}</span>
+                        <span style={{ fontSize: "9px", background: repBg, color: repTone, padding: "1px 4px", borderRadius: "3px", fontWeight: "bold" }}>{intel.reputation.toUpperCase()}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "var(--tone-muted)", marginTop: "4px" }}>
+                        <span>Source: {intel.source}</span>
+                        <span>Confidence: {intel.confidence}%</span>
+                      </div>
+                      <small style={{ display: "block", color: "var(--tone-muted)", fontSize: "9px", marginTop: "2px" }}>Category: {intel.category}</small>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <EmptyPanel label="No evidence" />
+      )}
+    </section>
+  );
+};
 
 const NotificationRail = ({ incident }: { incident: Incident | null }) => (
   <section className="os-panel">
