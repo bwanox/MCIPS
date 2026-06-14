@@ -621,7 +621,11 @@ const ThreatInboxRows = () => {
 };
 
 export const MissionOverviewView = () => {
-  const { selectedIncident, latestCorrelatedIncident } = useDashboardWorkspace();
+  const { selectedIncident, alerts } = useDashboardWorkspace();
+
+  const selectedAlert = selectedIncident
+    ? (alerts.find(a => a.id === selectedIncident.latestAlertId) || alerts.find(a => a.incidentId === selectedIncident.id) || null)
+    : null;
 
   return (
     <div className="command-grid">
@@ -631,7 +635,7 @@ export const MissionOverviewView = () => {
       </div>
       <CopilotConsole />
       <div className="command-right">
-        <EvidencePanel alert={latestCorrelatedIncident} incident={selectedIncident} />
+        <EvidencePanel alert={selectedAlert} incident={selectedIncident} />
         <ActionDock incident={selectedIncident} />
         <AgentRuntimePanel />
       </div>
